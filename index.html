@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">Pluriportail</title>
+<link id="favicon" rel="icon" type="image/png" href="assets/base.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1d2130;
+    --border: #262b3a;
+    --text: #e7e9ee;
+    --text-dim: #8b93a7;
+    --accent: #ff5d73;
+    --accent-2: #5da9ff;
+    --ok: #45c98a;
+    --warn: #e8b64a;
+    --radius: 14px;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+
+  /* ---------- AUTH ---------- */
+  #authScreen{
+    height:100%;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 20% 20%, #1a1e2b, #0f1115 60%);
+  }
+  .authCard{
+    width:360px;background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--radius);padding:32px;
+  }
+  .authCard h1{
+    font-size:22px;margin:0 0 4px;letter-spacing:.5px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .authCard p.sub{color:var(--text-dim);margin:0 0 24px;font-size:13px;}
+  .authTabs{display:flex;gap:8px;margin-bottom:20px;}
+  .authTabs button{
+    flex:1;padding:8px;border:1px solid var(--border);background:transparent;
+    color:var(--text-dim);border-radius:10px;font-size:13px;
+  }
+  .authTabs button.active{background:var(--panel-2);color:var(--text);border-color:var(--accent);}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;}
+  .field input{
+    width:100%;padding:10px 12px;background:var(--panel-2);
+    border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;
+  }
+  .btn-primary{
+    width:100%;padding:11px;background:linear-gradient(90deg,var(--accent),#ff8a5d);
+    border:none;border-radius:8px;color:#fff;font-weight:600;font-size:14px;margin-top:6px;
+  }
+  .btn-primary:disabled{opacity:.5;cursor:default;}
+  #authError{color:var(--accent);font-size:12px;margin-top:10px;min-height:14px;}
+  .loadingCode{display:none;text-align:center;padding:20px 0;color:var(--text-dim);font-size:13px;}
+  .spinner{
+    width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--accent);
+    border-radius:50%;margin:0 auto 12px;animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- APP LAYOUT ---------- */
+  #app{display:none;height:100%;}
+  .shell{display:flex;height:100%;}
+  .sidebar{
+    width:300px;background:var(--panel);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;flex-shrink:0;
+  }
+  .sidebar-top{
+    padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;
+  }
+  .me-code{font-size:11px;color:var(--text-dim);}
+  .me-code b{color:var(--accent-2);}
+  .icon-btn{
+    margin-left:auto;background:transparent;border:1px solid var(--border);
+    color:var(--text-dim);border-radius:8px;width:32px;height:32px;font-size:16px;
+  }
+  .icon-btn:hover{color:var(--text);border-color:var(--accent-2);}
+  .sidebar-tabs{display:flex;border-bottom:1px solid var(--border);}
+  .sidebar-tabs button{
+    flex:1;padding:10px;background:transparent;border:none;color:var(--text-dim);
+    font-size:13px;border-bottom:2px solid transparent;
+  }
+  .sidebar-tabs button.active{color:var(--text);border-color:var(--accent);}
+  .sidebar-body{flex:1;overflow-y:auto;padding:10px;}
+  .addFriendRow{display:flex;gap:6px;margin-bottom:12px;}
+  .addFriendRow input{
+    flex:1;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);
+    border-radius:8px;color:var(--text);font-size:13px;text-transform:uppercase;
+  }
+  .addFriendRow button{
+    width:34px;background:var(--accent-2);border:none;border-radius:8px;color:#08131f;font-weight:700;
+  }
+  .sectionLabel{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;}
+  .listItem{
+    display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:10px;cursor:pointer;
+    position:relative;
+  }
+  .listItem:hover{background:var(--panel-2);}
+  .listItem.active{background:var(--panel-2);border:1px solid var(--accent);}
+  .pfp{
+    width:36px;height:36px;border-radius:50%;background:#2a3040;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text-dim);
+    overflow:hidden;
+  }
+  .pfp img{width:100%;height:100%;object-fit:cover;}
+  .li-text{flex:1;min-width:0;}
+  .li-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .li-sub{font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .badge{
+    background:var(--accent);color:#fff;font-size:10px;font-weight:700;border-radius:10px;
+    padding:2px 6px;min-width:16px;text-align:center;
+  }
+  .acceptBtn{
+    background:var(--ok);border:none;color:#04241a;font-size:11px;padding:5px 8px;border-radius:6px;font-weight:700;
+  }
+  .newGroupBtn{
+    width:100%;padding:9px;background:var(--panel-2);border:1px dashed var(--border);
+    border-radius:10px;color:var(--text-dim);font-size:12px;margin-top:8px;
+  }
+  .newGroupBtn:hover{color:var(--text);border-color:var(--accent-2);}
+
+  /* ---------- CHAT ---------- */
+  .chatArea{flex:1;display:flex;flex-direction:column;min-width:0;position:relative;}
+  .chatHeader{
+    padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;
+    background:var(--panel);z-index:2;
+  }
+  .chatHeader .li-name{font-size:14px;}
+  .chatHeader .li-sub{font-size:11px;}
+  .gearBtn{
+    margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--text-dim);
+    width:34px;height:34px;border-radius:9px;font-size:16px;
+  }
+  .gearBtn:hover{color:var(--text);border-color:var(--accent-2);}
+  .messages{
+    flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:10px;
+    background-size:cover;background-position:center;
+  }
+  .emptyState{margin:auto;color:var(--text-dim);font-size:13px;text-align:center;}
+  .msgRow{display:flex;flex-direction:column;max-width:60%;}
+  .msgRow.mine{align-self:flex-end;align-items:flex-end;}
+  .msgRow.theirs{align-self:flex-start;align-items:flex-start;}
+  .msgSender{font-size:10px;color:var(--text-dim);margin:0 6px 3px;}
+  .bubble{
+    padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.4;position:relative;
+    box-shadow:0 2px 6px rgba(0,0,0,.25);
+  }
+  .msgMeta{font-size:9px;color:var(--text-dim);margin-top:3px;display:flex;gap:8px;}
+  .msgMeta button{background:none;border:none;color:var(--text-dim);font-size:9px;text-decoration:underline;padding:0;}
+  .msgMeta button:hover{color:var(--accent-2);}
+  .composer{
+    padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;background:var(--panel);
+  }
+  .composer input{
+    flex:1;padding:11px 14px;background:var(--panel-2);border:1px solid var(--border);
+    border-radius:20px;color:var(--text);font-size:14px;
+  }
+  .composer button{
+    padding:0 20px;background:var(--accent);border:none;border-radius:20px;color:#fff;font-weight:700;
+  }
+  .noSelection{margin:auto;color:var(--text-dim);}
+
+  /* ---------- MODALS ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(4,5,8,.7);display:none;align-items:center;justify-content:center;
+    z-index:50;padding:20px;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    width:440px;max-width:100%;max-height:85vh;overflow-y:auto;padding:22px;
+  }
+  .modal h2{margin:0 0 4px;font-size:17px;}
+  .modal .modalSub{color:var(--text-dim);font-size:12px;margin:0 0 18px;}
+  .modal-close{
+    float:right;background:transparent;border:none;color:var(--text-dim);font-size:18px;
+  }
+  .previewBox{
+    border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:18px;
+    display:flex;flex-direction:column;gap:8px;background-size:cover;background-position:center;
+  }
+  .previewMsg{max-width:75%;padding:7px 11px;border-radius:14px;font-size:12px;}
+  .previewMsg.left{align-self:flex-start;}
+  .previewMsg.right{align-self:flex-end;}
+  .colorRow{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .colorRow .pfp{width:28px;height:28px;font-size:11px;}
+  .colorRow input[type=color]{
+    width:38px;height:28px;border:none;background:none;padding:0;margin-left:auto;cursor:pointer;
+  }
+  .toggleRow{display:flex;gap:8px;margin-bottom:14px;}
+  .toggleRow button{
+    flex:1;padding:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);
+    border-radius:8px;font-size:12px;
+  }
+  .toggleRow button.active{border-color:var(--accent-2);color:var(--text);}
+  .toggleRow button:disabled{opacity:.35;cursor:not-allowed;}
+  .wallGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;}
+  .wallThumb{
+    aspect-ratio:1/1;border-radius:8px;background:var(--panel-2);background-size:cover;
+    background-position:center;border:2px solid transparent;cursor:pointer;
+  }
+  .wallThumb.selected{border-color:var(--accent);}
+  .memberRow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);}
+  .memberRow:last-child{border-bottom:none;}
+  .roleTag{font-size:10px;padding:2px 7px;border-radius:8px;background:var(--panel-2);color:var(--text-dim);}
+  .roleTag.creator{color:var(--warn);}
+  .roleTag.moderator{color:var(--accent-2);}
+  .promoteBtn{
+    margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--text-dim);
+    font-size:11px;padding:4px 8px;border-radius:6px;
+  }
+  .promoteBtn:hover{color:var(--text);border-color:var(--accent-2);}
+  .reqRow{display:flex;align-items:center;gap:8px;font-size:12px;background:var(--panel-2);
+    padding:8px;border-radius:8px;margin-bottom:8px;}
+  .reqRow button{border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;}
+  .switch{position:relative;width:38px;height:20px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{
+    position:absolute;inset:0;background:var(--panel-2);border:1px solid var(--border);
+    border-radius:20px;transition:.2s;cursor:pointer;
+  }
+  .slider:before{
+    content:"";position:absolute;width:14px;height:14px;left:2px;top:2px;background:var(--text-dim);
+    border-radius:50%;transition:.2s;
+  }
+  .switch input:checked + .slider{background:var(--accent-2);border-color:var(--accent-2);}
+  .switch input:checked + .slider:before{transform:translateX(18px);background:#08131f;}
+  .settingsGroup{margin-bottom:20px;}
+  .settingsGroup h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin:0 0 10px;}
+  .row-between{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .radioGroup label{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- ===================== AUTH ===================== -->
+<div id="authScreen">
+  <div class="authCard">
+    <h1>Pluriportail</h1>
+    <p class="sub">RzaSMS — messagerie entre amis</p>
+    <div class="authTabs">
+      <button id="tabLogin" class="active">Connexion</button>
+      <button id="tabSignup">Inscription</button>
+    </div>
+
+    <form id="formLogin">
+      <div class="field"><label>Courriel</label><input type="email" id="loginEmail" required></div>
+      <div class="field"><label>Mot de passe</label><input type="password" id="loginPass" required></div>
+      <button class="btn-primary" type="submit">Se connecter</button>
+    </form>
+
+    <form id="formSignup" style="display:none;">
+      <div class="field"><label>Courriel</label><input type="email" id="signupEmail" required></div>
+      <div class="field"><label>Mot de passe</label><input type="password" id="signupPass" required minlength="6"></div>
+      <button class="btn-primary" type="submit" id="signupBtn">Créer le compte</button>
+    </form>
+
+    <div class="loadingCode" id="loadingCode">
+      <div class="spinner"></div>
+      Génération de ton code RZA...
+    </div>
+
+    <div id="authError"></div>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app">
+  <div class="shell">
+    <div class="sidebar">
+      <div class="sidebar-top">
+        <div class="pfp">🙂</div>
+        <div>
+          <div class="li-name" id="myEmail"></div>
+          <div class="me-code">Code: <b id="myCode">...</b></div>
+        </div>
+        <button class="icon-btn" id="openAccountSettings" title="Paramètres du compte">⚙</button>
+      </div>
+      <div class="sidebar-tabs">
+        <button id="tabFriends" class="active">Amis</button>
+        <button id="tabConvos">Discussions</button>
+      </div>
+      <div class="sidebar-body">
+        <div id="panelFriends">
+          <div class="addFriendRow">
+            <input id="friendCodeInput" placeholder="RZA-XXXX" maxlength="12">
+            <button id="addFriendBtn">+</button>
+          </div>
+          <div id="pendingList"></div>
+          <div class="sectionLabel">Mes amis</div>
+          <div id="friendsList"></div>
+        </div>
+        <div id="panelConvos" style="display:none;">
+          <button class="newGroupBtn" id="newGroupBtn">+ Nouveau groupe</button>
+          <div id="convosList" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chatArea">
+      <div id="noConvo" class="noSelection">Sélectionne une discussion</div>
+      <div id="convoWrap" style="display:none;flex:1;display:none;flex-direction:column;min-height:0;">
+        <div class="chatHeader">
+          <div class="pfp" id="chatPfp">👤</div>
+          <div>
+            <div class="li-name" id="chatName"></div>
+            <div class="li-sub" id="chatSub"></div>
+          </div>
+          <button class="gearBtn" id="openChatSettings">⚙</button>
+        </div>
+        <div class="messages" id="messagesEl"></div>
+        <div class="composer">
+          <input id="msgInput" placeholder="Écris un message...">
+          <button id="sendBtn">Envoyer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: PARAMÈTRES DE DISCUSSION ===================== -->
+<div class="overlay" id="chatSettingsOverlay">
+  <div class="modal">
+    <button class="modal-close" id="closeChatSettings">✕</button>
+    <h2>Paramètres de la discussion</h2>
+    <p class="modalSub">Personnalise cette conversation</p>
+
+    <div class="previewBox" id="previewBox"></div>
+
+    <div class="settingsGroup">
+      <h3>Couleur des bulles (personnel)</h3>
+      <div id="colorRows"></div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Fond d'écran</h3>
+      <div class="toggleRow">
+        <button id="wallModePublic" class="active">Public</button>
+        <button id="wallModePrivate">Privé</button>
+      </div>
+      <div class="wallGrid" id="wallGrid"></div>
+      <div id="wallHint" style="font-size:11px;color:var(--text-dim);"></div>
+    </div>
+
+    <div class="settingsGroup" id="modGroup" style="display:none;">
+      <h3>Demandes de fond d'écran public</h3>
+      <div id="wallRequests"></div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Notifications pour ce chat</h3>
+      <div class="row-between">
+        <span style="font-size:13px;">Recevoir les notifications</span>
+        <label class="switch"><input type="checkbox" id="muteToggle"><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="settingsGroup" id="membersGroup" style="display:none;">
+      <h3>Membres et modération</h3>
+      <div id="membersList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: PARAMÈTRES DU COMPTE ===================== -->
+<div class="overlay" id="accountSettingsOverlay">
+  <div class="modal">
+    <button class="modal-close" id="closeAccountSettings">✕</button>
+    <h2>Paramètres du compte</h2>
+    <p class="modalSub">Notifications globales</p>
+
+    <div class="settingsGroup">
+      <div class="row-between">
+        <span style="font-size:13px;">Activer les notifications</span>
+        <label class="switch"><input type="checkbox" id="globalNotifToggle" checked><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Style du favicon / titre non lu</h3>
+      <div class="radioGroup">
+        <label><input type="radio" name="faviconMode" value="double-l"> Double-L — ajoute des "l" à Pluriportail</label>
+        <label><input type="radio" name="faviconMode" value="image-l"> Image-L — change l'icône de l'onglet</label>
+        <label><input type="radio" name="faviconMode" value="off"> Désactivé</label>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <button class="btn-primary" style="background:#3a3f52;" id="logoutBtn">Déconnexion</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIGURATION — à remplir
+============================================================ */
+const SUPABASE_URL = "https://TON-PROJET.supabase.co";
+const SUPABASE_ANON_KEY = "TA-CLE-ANON";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const WALLPAPER_COUNT = 5;
+const DEFAULT_BUBBLE_COLOR = "#3a7bd5";
+
+/* ============================================================
+   ÉTAT
+============================================================ */
+let me = null;          // profile row
+let friends = [];        // {id, code, email, status, requestId, incoming}
+let conversations = [];  // liste enrichie
+let activeConvo = null;  // conversation active complète
+let msgChannel = null;
+let convoChannel = null;
+
+/* ============================================================
+   AUTH — onglets
+============================================================ */
+document.getElementById("tabLogin").onclick = () => switchAuthTab("login");
+document.getElementById("tabSignup").onclick = () => switchAuthTab("signup");
+function switchAuthTab(which){
+  document.getElementById("tabLogin").classList.toggle("active", which==="login");
+  document.getElementById("tabSignup").classList.toggle("active", which==="signup");
+  document.getElementById("formLogin").style.display = which==="login" ? "block" : "none";
+  document.getElementById("formSignup").style.display = which==="signup" ? "block" : "none";
+  document.getElementById("authError").textContent = "";
+}
+
+document.getElementById("formLogin").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  setAuthError("");
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPass").value;
+  const {error} = await sb.auth.signInWithPassword({email, password});
+  if (error) return setAuthError(traduireErreur(error.message));
+  await boot();
+});
+
+document.getElementById("formSignup").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  setAuthError("");
+  const email = document.getElementById("signupEmail").value.trim();
+  const password = document.getElementById("signupPass").value;
+  document.getElementById("signupBtn").disabled = true;
+  document.getElementById("loadingCode").style.display = "block";
+
+  const {error} = await sb.auth.signUp({email, password});
+  // temps de chargement simulé pour la génération du code RZA
+  await new Promise(r => setTimeout(r, 1600));
+
+  document.getElementById("loadingCode").style.display = "none";
+  document.getElementById("signupBtn").disabled = false;
+
+  if (error) return setAuthError(traduireErreur(error.message));
+  await boot();
+});
+
+function setAuthError(msg){ document.getElementById("authError").textContent = msg; }
+function traduireErreur(msg){
+  if (/already registered/i.test(msg)) return "Ce courriel a déjà un compte.";
+  if (/invalid login/i.test(msg)) return "Courriel ou mot de passe invalide.";
+  if (/password/i.test(msg)) return "Mot de passe invalide (minimum 6 caractères).";
+  return msg;
+}
+
+/* ============================================================
+   BOOT
+============================================================ */
+async function boot(){
+  const {data:{user}} = await sb.auth.getUser();
+  if (!user){ return; }
+
+  let {data: profile} = await sb.from("profiles").select("*").eq("id", user.id).single();
+  // au cas où le trigger vient tout juste de tourner
+  let tries = 0;
+  while(!profile && tries < 5){
+    await new Promise(r=>setTimeout(r,400));
+    ({data: profile} = await sb.from("profiles").select("*").eq("id", user.id).single());
+    tries++;
+  }
+  me = profile;
+
+  document.getElementById("authScreen").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  document.getElementById("myEmail").textContent = me.email;
+  document.getElementById("myCode").textContent = me.code;
+  document.getElementById("globalNotifToggle").checked = me.notifications_enabled;
+  document.querySelector(`input[name=faviconMode][value="${me.favicon_mode}"]`).checked = true;
+
+  await loadFriends();
+  await loadConversations();
+  subscribeRealtime();
+  updateFaviconTitle();
+}
+
+sb.auth.onAuthStateChange((event)=>{
+  if (event === "SIGNED_OUT"){
+    location.reload();
+  }
+});
+
+/* ============================================================
+   AMIS
+============================================================ */
+document.getElementById("addFriendBtn").onclick = async ()=>{
+  const code = document.getElementById("friendCodeInput").value.trim().toUpperCase();
+  if (!code) return;
+  const {error} = await sb.rpc("send_friend_request", {p_code: code});
+  document.getElementById("friendCodeInput").value = "";
+  if (error) alert("Erreur: " + traduireRpc(error.message));
+  else await loadFriends();
+};
+
+async function loadFriends(){
+  const {data} = await sb
+    .from("friends")
+    .select("id, status, requester_id, addressee_id, requester:requester_id(id,email,code), addressee:addressee_id(id,email,code)")
+    .or(`requester_id.eq.${me.id},addressee_id.eq.${me.id}`);
+
+  friends = (data||[]).map(f=>{
+    const isMeRequester = f.requester_id === me.id;
+    const other = isMeRequester ? f.addressee : f.requester;
+    return {
+      requestId: f.id,
+      status: f.status,
+      incoming: !isMeRequester && f.status === "pending",
+      id: other.id, email: other.email, code: other.code
+    };
+  });
+
+  renderFriends();
+}
+
+function renderFriends(){
+  const pendingIncoming = friends.filter(f=>f.incoming);
+  const accepted = friends.filter(f=>f.status==="accepted");
+
+  const pendingEl = document.getElementById("pendingList");
+  pendingEl.innerHTML = "";
+  if (pendingIncoming.length){
+    const label = document.createElement("div");
+    label.className = "sectionLabel";
+    label.textContent = "Invitations reçues";
+    pendingEl.appendChild(label);
+    pendingIncoming.forEach(f=>{
+      const row = document.createElement("div");
+      row.className = "listItem";
+      row.innerHTML = `<div class="pfp">👤</div>
+        <div class="li-text"><div class="li-name">${escapeHtml(f.email)}</div>
+        <div class="li-sub">${f.code}</div></div>
+        <button class="acceptBtn">Accepter</button>`;
+      row.querySelector(".acceptBtn").onclick = async (ev)=>{
+        ev.stopPropagation();
+        const {error} = await sb.rpc("accept_friend_request", {p_friend_row: f.requestId});
+        if (error) alert(traduireRpc(error.message));
+        else { await loadFriends(); await loadConversations(); }
+      };
+      pendingEl.appendChild(row);
+    });
+  }
+
+  const listEl = document.getElementById("friendsList");
+  listEl.innerHTML = "";
+  if (!accepted.length){
+    listEl.innerHTML = `<div class="li-sub" style="padding:8px;">Aucun ami pour l'instant. Ajoute-en avec un code RZA.</div>`;
+  }
+  accepted.forEach(f=>{
+    const row = document.createElement("div");
+    row.className = "listItem";
+    row.innerHTML = `<div class="pfp">👤</div>
+      <div class="li-text"><div class="li-name">${escapeHtml(f.email)}</div>
+      <div class="li-sub">${f.code}</div></div>`;
+    row.onclick = async ()=>{
+      const conv = conversations.find(c=> c.type==="dm" && c.memberIds.includes(f.id));
+      if (conv) openConversation(conv.id);
+      else { await loadConversations(); const c2 = conversations.find(c=> c.type==="dm" && c.memberIds.includes(f.id)); if(c2) openConversation(c2.id); }
+    };
+    listEl.appendChild(row);
+  });
+}
+
+function traduireRpc(msg){
+  const map = {
+    code_introuvable: "Aucun compte avec ce code.",
+    auto_ajout_impossible: "Tu ne peux pas t'ajouter toi-même.",
+    demande_introuvable: "Invitation introuvable.",
+    non_membre: "Tu n'es pas membre de cette discussion.",
+    non_autorise: "Action réservée aux modérateurs.",
+    fenetre_suppression_expiree: "Le délai de 5 minutes pour supprimer est dépassé.",
+    fenetre_modification_expiree: "Le délai de 15 minutes pour modifier est dépassé.",
+    message_supprime: "Ce message est supprimé.",
+    pas_proprietaire: "Ce n'est pas ton message."
+  };
+  for (const k in map) if (msg.includes(k)) return map[k];
+  return msg;
+}
+
+/* ============================================================
+   CONVERSATIONS
+============================================================ */
+document.getElementById("tabFriends").onclick = ()=> switchSideTab("friends");
+document.getElementById("tabConvos").onclick = ()=> switchSideTab("convos");
+function switchSideTab(which){
+  document.getElementById("tabFriends").classList.toggle("active", which==="friends");
+  document.getElementById("tabConvos").classList.toggle("active", which==="convos");
+  document.getElementById("panelFriends").style.display = which==="friends" ? "block":"none";
+  document.getElementById("panelConvos").style.display = which==="convos" ? "block":"none";
+}
+
+document.getElementById("newGroupBtn").onclick = async ()=>{
+  const accepted = friends.filter(f=>f.status==="accepted");
+  if (!accepted.length) return alert("Ajoute au moins un ami avant de créer un groupe.");
+  const name = prompt("Nom du groupe :");
+  if (!name) return;
+  const picks = prompt("Codes des amis à ajouter, séparés par des virgules :\n" +
+    accepted.map(f=>f.code).join(", "));
+  if (!picks) return;
+  const codes = picks.split(",").map(s=>s.trim().toUpperCase()).filter(Boolean);
+  const targetIds = accepted.filter(f=>codes.includes(f.code)).map(f=>f.id);
+  if (!targetIds.length) return alert("Aucun code reconnu.");
+
+  const {data: conv, error} = await sb.from("conversations").insert({type:"group", name, creator_id: me.id}).select().single();
+  if (error) return alert(error.message);
+  const rows = [{conversation_id: conv.id, user_id: me.id, role:"creator"},
+    ...targetIds.map(id=>({conversation_id: conv.id, user_id:id, role:"member"}))];
+  await sb.from("conversation_members").insert(rows);
+  await loadConversations();
+  openConversation(conv.id);
+};
+
+async function loadConversations(){
+  const {data: mine} = await sb.from("conversation_members").select("conversation_id, role").eq("user_id", me.id);
+  const ids = (mine||[]).map(m=>m.conversation_id);
+  if (!ids.length){ conversations = []; renderConvos(); return; }
+
+  const {data: convs} = await sb.from("conversations").select("*").in("id", ids);
+  const {data: members} = await sb.from("conversation_members").select("conversation_id,user_id,role,profiles:user_id(id,email,code)").in("conversation_id", ids);
+  const {data: settings} = await sb.from("member_settings").select("*").eq("user_id", me.id).in("conversation_id", ids);
+
+  conversations = convs.map(c=>{
+    const mem = members.filter(m=>m.conversation_id===c.id);
+    const myRole = mine.find(m=>m.conversation_id===c.id).role;
+    const mySettings = (settings||[]).find(s=>s.conversation_id===c.id) || {};
+    let displayName = c.name;
+    if (c.type === "dm"){
+      const other = mem.find(m=>m.user_id !== me.id);
+      displayName = other ? other.profiles.email : "?";
+    }
+    return {
+      ...c, members: mem, myRole, displayName,
+      memberIds: mem.map(m=>m.user_id),
+      notificationsEnabled: mySettings.notifications_enabled !== false,
+      lastReadAt: mySettings.last_read_at || c.created_at
+    };
+  });
+
+  await refreshUnreadCounts();
+  renderConvos();
+}
+
+function renderConvos(){
+  const el = document.getElementById("convosList");
+  el.innerHTML = "";
+  if (!conversations.length){
+    el.innerHTML = `<div class="li-sub" style="padding:8px;">Aucune discussion pour l'instant.</div>`;
+    return;
+  }
+  conversations.slice().sort((a,b)=> (b.lastMsgAt||"").localeCompare(a.lastMsgAt||"")).forEach(c=>{
+    const row = document.createElement("div");
+    row.className = "listItem" + (activeConvo && activeConvo.id===c.id ? " active" : "");
+    row.innerHTML = `<div class="pfp">${c.type==="group" ? "👥" : "👤"}</div>
+      <div class="li-text"><div class="li-name">${escapeHtml(c.displayName)}</div>
+      <div class="li-sub">${c.type==="group" ? c.members.length+" membres" : "Message privé"}</div></div>
+      ${c.unread ? `<span class="badge">${c.unread}</span>` : ""}`;
+    row.onclick = ()=> openConversation(c.id);
+    el.appendChild(row);
+  });
+}
+
+async function refreshUnreadCounts(){
+  for (const c of conversations){
+    if (!c.notificationsEnabled){ c.unread = 0; continue; }
+    const {count} = await sb.from("messages").select("id",{count:"exact",head:true})
+      .eq("conversation_id", c.id).eq("deleted", false).neq("sender_id", me.id)
+      .gt("created_at", c.lastReadAt);
+    c.unread = count || 0;
+  }
+  updateFaviconTitle();
+}
+
+/* ============================================================
+   OUVERTURE D'UNE DISCUSSION
+============================================================ */
+async function openConversation(convoId){
+  switchSideTab("convos");
+  const conv = conversations.find(c=>c.id===convoId);
+  if (!conv) return;
+  activeConvo = conv;
+
+  document.getElementById("noConvo").style.display = "none";
+  const wrap = document.getElementById("convoWrap");
+  wrap.style.display = "flex";
+
+  document.getElementById("chatPfp").textContent = conv.type==="group" ? "👥" : "👤";
+  document.getElementById("chatName").textContent = conv.displayName;
+  document.getElementById("chatSub").textContent = conv.type==="group" ? conv.members.length+" membres" : "Message privé";
+
+  await loadBubbleColors(conv);
+  await applyWallpaper(conv);
+  await loadMessages(conv);
+  renderConvos();
+
+  await sb.from("member_settings").upsert({
+    conversation_id: conv.id, user_id: me.id, last_read_at: new Date().toISOString()
+  });
+  conv.unread = 0; conv.lastReadAt = new Date().toISOString();
+  renderConvos(); updateFaviconTitle();
+
+  listenToConvoMessages(conv.id);
+}
+
+async function loadBubbleColors(conv){
+  const {data} = await sb.from("member_bubble_colors").select("*")
+    .eq("conversation_id", conv.id).eq("viewer_id", me.id);
+  conv.bubbleColors = {};
+  conv.members.forEach(m=> conv.bubbleColors[m.user_id] = DEFAULT_BUBBLE_COLOR);
+  (data||[]).forEach(row=> conv.bubbleColors[row.target_user_id] = row.color);
+}
+
+async function applyWallpaper(conv){
+  const {data: settings} = await sb.from("member_settings").select("wallpaper_private")
+    .eq("conversation_id", conv.id).eq("user_id", me.id).maybeSingle();
+  const idx = (settings && settings.wallpaper_private) || conv.wallpaper_public;
+  const msgsEl = document.getElementById("messagesEl");
+  msgsEl.style.backgroundImage = idx ? `url(assets/img/wallpaper${idx}.png)` : "none";
+}
+
+async function loadMessages(conv){
+  const {data} = await sb.from("messages").select("*").eq("conversation_id", conv.id).order("created_at");
+  conv.messages = data || [];
+  renderMessages(conv);
+}
+
+function renderMessages(conv){
+  const el = document.getElementById("messagesEl");
+  el.querySelectorAll(".msgRow").forEach(n=>n.remove());
+  if (!conv.messages.length){
+    if (!el.querySelector(".emptyState")){
+      const e = document.createElement("div");
+      e.className = "emptyState";
+      e.textContent = "Aucun message. Dis bonjour!";
+      el.appendChild(e);
+    }
+  } else {
+    el.querySelector(".emptyState")?.remove();
+  }
+  conv.messages.forEach(m=> el.appendChild(renderMessageRow(conv, m)));
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderMessageRow(conv, m){
+  const mine = m.sender_id === me.id;
+  const row = document.createElement("div");
+  row.className = "msgRow " + (mine ? "mine" : "theirs");
+  const senderName = mine ? "Toi" : (conv.members.find(x=>x.user_id===m.sender_id)?.profiles.email || "?");
+  const color = conv.bubbleColors[m.sender_id] || DEFAULT_BUBBLE_COLOR;
+
+  const now = Date.now();
+  const created = new Date(m.created_at).getTime();
+  const canDelete = mine && !m.deleted && (now - created) < 5*60*1000;
+  const canEdit = mine && !m.deleted && (now - created) < 15*60*1000;
+
+  row.innerHTML = `
+    ${conv.type==="group" ? `<div class="msgSender">${escapeHtml(senderName)}</div>` : ""}
+    <div class="bubble" style="background:${m.deleted ? "#2a2f3d" : color}; color:${m.deleted ? "#7a8196" : "#fff"};">
+      ${m.deleted ? "<i>Message supprimé</i>" : escapeHtml(m.content)}
+    </div>
+    <div class="msgMeta">
+      <span>${new Date(m.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}${m.edited_at ? " · modifié" : ""}</span>
+      ${canEdit ? `<button data-act="edit">modifier</button>` : ""}
+      ${canDelete ? `<button data-act="del">supprimer</button>` : ""}
+    </div>`;
+
+  if (canEdit) row.querySelector('[data-act="edit"]').onclick = async ()=>{
+    const nv = prompt("Modifier le message :", m.content);
+    if (nv == null || nv.trim()==="") return;
+    const {error} = await sb.from("messages").update({content: nv.trim()}).eq("id", m.id);
+    if (error) alert(traduireRpc(error.message));
+  };
+  if (canDelete) row.querySelector('[data-act="del"]').onclick = async ()=>{
+    if (!confirm("Supprimer ce message ?")) return;
+    const {error} = await sb.from("messages").update({deleted:true}).eq("id", m.id);
+    if (error) alert(traduireRpc(error.message));
+  };
+
+  return row;
+}
+
+document.getElementById("sendBtn").onclick = sendMessage;
+document.getElementById("msgInput").addEventListener("keydown", e=>{ if(e.key==="Enter") sendMessage(); });
+async function sendMessage(){
+  if (!activeConvo) return;
+  const input = document.getElementById("msgInput");
+  const content = input.value.trim();
+  if (!content) return;
+  input.value = "";
+  const {error} = await sb.from("messages").insert({
+    conversation_id: activeConvo.id, sender_id: me.id, content
+  });
+  if (error) alert(error.message);
+}
+
+function listenToConvoMessages(convoId){
+  if (msgChannel) sb.removeChannel(msgChannel);
+  msgChannel = sb.channel("msgs-"+convoId)
+    .on("postgres_changes", {event:"*", schema:"public", table:"messages", filter:`conversation_id=eq.${convoId}`}, payload=>{
+      if (!activeConvo || activeConvo.id !== convoId) return;
+      const idx = activeConvo.messages.findIndex(m=>m.id===payload.new?.id || m.id===payload.old?.id);
+      if (payload.eventType === "INSERT") activeConvo.messages.push(payload.new);
+      else if (payload.eventType === "UPDATE" && idx>-1) activeConvo.messages[idx] = payload.new;
+      renderMessages(activeConvo);
+    }).subscribe();
+}
+
+/* Realtime global: badges de non-lus + favicon sur toutes les conversations */
+function subscribeRealtime(){
+  if (convoChannel) sb.removeChannel(convoChannel);
+  convoChannel = sb.channel("global-msgs")
+    .on("postgres_changes", {event:"INSERT", schema:"public", table:"messages"}, async payload=>{
+      const conv = conversations.find(c=>c.id === payload.new.conversation_id);
+      if (!conv || payload.new.sender_id === me.id) return;
+      if (activeConvo && activeConvo.id === conv.id) return; // vue active = lu
+      if (!conv.notificationsEnabled) return;
+      conv.unread = (conv.unread||0) + 1;
+      renderConvos();
+      updateFaviconTitle();
+    })
+    .on("postgres_changes", {event:"*", schema:"public", table:"friends"}, ()=> loadFriends())
+    .subscribe();
+}
+
+/* ============================================================
+   FAVICON / TITRE
+============================================================ */
+function totalUnread(){
+  return conversations.reduce((s,c)=> s + (c.unread||0), 0);
+}
+function updateFaviconTitle(){
+  const n = totalUnread();
+  const titleEl = document.getElementById("pageTitle");
+  const faviconEl = document.getElementById("favicon");
+
+  if (!me || !me.notifications_enabled || n===0){
+    titleEl.textContent = "Pluriportail";
+    faviconEl.href = "assets/base.png";
+    return;
+  }
+
+  if (me.favicon_mode === "double-l"){
+    titleEl.textContent = "Pluriportai" + "l".repeat(Math.max(1,n));
+    faviconEl.href = "assets/base.png";
+  } else if (me.favicon_mode === "image-l"){
+    titleEl.textContent = "Pluriportail";
+    faviconEl.href = "assets/base-l.png";
+  } else {
+    titleEl.textContent = "Pluriportail";
+    faviconEl.href = "assets/base.png";
+  }
+}
+
+/* ============================================================
+   PARAMÈTRES DU COMPTE
+============================================================ */
+document.getElementById("openAccountSettings").onclick = ()=> document.getElementById("accountSettingsOverlay").classList.add("show");
+document.getElementById("closeAccountSettings").onclick = ()=> document.getElementById("accountSettingsOverlay").classList.remove("show");
+
+document.getElementById("globalNotifToggle").onchange = async (e)=>{
+  me.notifications_enabled = e.target.checked;
+  await sb.from("profiles").update({notifications_enabled: me.notifications_enabled}).eq("id", me.id);
+  updateFaviconTitle();
+};
+document.querySelectorAll('input[name=faviconMode]').forEach(r=>{
+  r.onchange = async ()=>{
+    me.favicon_mode = r.value;
+    await sb.from("profiles").update({favicon_mode: me.favicon_mode}).eq("id", me.id);
+    updateFaviconTitle();
+  };
+});
+document.getElementById("logoutBtn").onclick = async ()=>{ await sb.auth.signOut(); };
+
+/* ============================================================
+   PARAMÈTRES DE DISCUSSION (engrenage)
+============================================================ */
+let wallMode = "public";
+
+document.getElementById("openChatSettings").onclick = ()=> openChatSettingsModal();
+document.getElementById("closeChatSettings").onclick = ()=> document.getElementById("chatSettingsOverlay").classList.remove("show");
+
+async function openChatSettingsModal(){
+  if (!activeConvo) return;
+  const conv = activeConvo;
+  wallMode = "public";
+
+  document.getElementById("wallModePrivate").disabled = (conv.type === "dm");
+  document.getElementById("wallModePrivate").title = conv.type==="dm" ? "Indisponible pour les messages privés" : "";
+
+  renderPreview(conv);
+  renderColorRows(conv);
+  await renderWallGrid(conv);
+
+  document.getElementById("modGroup").style.display = (conv.type==="group" && (conv.myRole==="creator"||conv.myRole==="moderator")) ? "block" : "none";
+  if (conv.type==="group" && (conv.myRole==="creator"||conv.myRole==="moderator")) await renderWallRequests(conv);
+
+  document.getElementById("membersGroup").style.display = conv.type==="group" ? "block" : "none";
+  if (conv.type==="group") renderMembersList(conv);
+
+  const {data: settings} = await sb.from("member_settings").select("notifications_enabled")
+    .eq("conversation_id", conv.id).eq("user_id", me.id).maybeSingle();
+  document.getElementById("muteToggle").checked = !settings || settings.notifications_enabled !== false;
+
+  document.getElementById("chatSettingsOverlay").classList.add("show");
+}
+
+function renderPreview(conv){
+  const box = document.getElementById("previewBox");
+  const idx = conv.wallpaper_public;
+  box.style.backgroundImage = idx ? `url(assets/img/wallpaper${idx}.png)` : "none";
+  box.innerHTML = "";
+  conv.members.slice(0,4).forEach((m,i)=>{
+    const bubble = document.createElement("div");
+    const mine = m.user_id === me.id;
+    bubble.className = "previewMsg " + (mine ? "right" : "left");
+    const color = conv.bubbleColors[m.user_id] || DEFAULT_BUBBLE_COLOR;
+    bubble.style.background = color;
+    bubble.style.color = "#fff";
+    bubble.textContent = mine ? "Toi: aperçu du message" : `${shortName(m)}: aperçu du message`;
+    box.appendChild(bubble);
+  });
+}
+
+function shortName(m){ return (m.profiles.email||"?").split("@")[0]; }
+
+function renderColorRows(conv){
+  const el = document.getElementById("colorRows");
+  el.innerHTML = "";
+  conv.members.forEach(m=>{
+    const row = document.createElement("div");
+    row.className = "colorRow";
+    row.innerHTML = `<div class="pfp">${m.user_id===me.id ? "🙂" : "👤"}</div>
+      <span style="font-size:13px;">${m.user_id===me.id ? "Toi" : escapeHtml(shortName(m))}</span>
+      <input type="color" value="${conv.bubbleColors[m.user_id]||DEFAULT_BUBBLE_COLOR}">`;
+    row.querySelector("input").oninput = async (e)=>{
+      conv.bubbleColors[m.user_id] = e.target.value;
+      renderPreview(conv);
+    };
+    row.querySelector("input").onchange = async (e)=>{
+      await sb.from("member_bubble_colors").upsert({
+        conversation_id: conv.id, viewer_id: me.id, target_user_id: m.user_id, color: e.target.value
+      });
+      renderMessages(conv);
+    };
+    el.appendChild(row);
+  });
+}
+
+document.getElementById("wallModePublic").onclick = ()=>{ wallMode="public"; toggleWallButtons(); };
+document.getElementById("wallModePrivate").onclick = ()=>{ if(activeConvo.type==="dm") return; wallMode="private"; toggleWallButtons(); };
+function toggleWallButtons(){
+  document.getElementById("wallModePublic").classList.toggle("active", wallMode==="public");
+  document.getElementById("wallModePrivate").classList.toggle("active", wallMode==="private");
+  const hint = document.getElementById("wallHint");
+  if (wallMode==="public") hint.textContent = activeConvo.type==="group"
+    ? "Le fond sera visible pour tout le monde (approbation d'un modérateur requise si tu n'en es pas un)."
+    : "Le fond sera visible pour toi et ton contact.";
+  else hint.textContent = "Le fond ne sera visible que pour toi, dans ce groupe.";
+  renderWallGrid(activeConvo);
+}
+
+async function renderWallGrid(conv){
+  const el = document.getElementById("wallGrid");
+  el.innerHTML = "";
+  let selected = null;
+  if (wallMode === "public") selected = conv.wallpaper_public;
+  else {
+    const {data} = await sb.from("member_settings").select("wallpaper_private")
+      .eq("conversation_id", conv.id).eq("user_id", me.id).maybeSingle();
+    selected = data && data.wallpaper_private;
+  }
+  for (let i=1;i<=WALLPAPER_COUNT;i++){
+    const thumb = document.createElement("div");
+    thumb.className = "wallThumb" + (selected===i ? " selected" : "");
+    thumb.style.backgroundImage = `url(assets/img/wallpaper${i}.png)`;
+    thumb.onclick = ()=> chooseWallpaper(conv, i);
+    el.appendChild(thumb);
+  }
+  toggleWallHint(conv);
+}
+function toggleWallHint(conv){
+  document.getElementById("wallHint").textContent =
+    wallMode==="public"
+      ? (conv.type==="group" ? "Le fond sera visible pour tout le monde (approbation d'un modérateur requise si tu n'en es pas un)." : "Le fond sera visible pour toi et ton contact.")
+      : "Le fond ne sera visible que pour toi, dans ce groupe.";
+}
+
+async function chooseWallpaper(conv, idx){
+  if (wallMode === "public"){
+    const {data, error} = await sb.rpc("request_public_wallpaper", {p_conversation_id: conv.id, p_index: idx});
+    if (error) return alert(traduireRpc(error.message));
+    if (data === "applique"){
+      conv.wallpaper_public = idx;
+      applyWallpaper(conv); renderPreview(conv);
+      alert("Fond d'écran appliqué pour tout le monde.");
+    } else {
+      alert("Demande envoyée aux modérateurs du groupe.");
+    }
+  } else {
+    await sb.from("member_settings").upsert({conversation_id: conv.id, user_id: me.id, wallpaper_private: idx});
+    applyWallpaper(conv);
+    alert("Fond d'écran appliqué pour toi seulement.");
+  }
+  renderWallGrid(conv);
+}
+
+async function renderWallRequests(conv){
+  const {data} = await sb.from("wallpaper_requests").select("*, profiles:requested_by(email)")
+    .eq("conversation_id", conv.id).eq("status","pending");
+  const el = document.getElementById("wallRequests");
+  el.innerHTML = "";
+  if (!data || !data.length){ el.innerHTML = `<div class="li-sub">Aucune demande en attente.</div>`; return; }
+  data.forEach(r=>{
+    const row = document.createElement("div");
+    row.className = "reqRow";
+    row.innerHTML = `<div class="wallThumb" style="width:36px;height:36px;background-image:url(assets/img/wallpaper${r.wallpaper_index}.png)"></div>
+      <span style="flex:1;">${escapeHtml(r.profiles.email)} propose le fond #${r.wallpaper_index}</span>
+      <button data-a="ok" style="background:var(--ok);color:#04241a;">Accepter</button>
+      <button data-a="no" style="background:#3a3f52;color:#fff;">Refuser</button>`;
+    row.querySelector('[data-a="ok"]').onclick = async ()=>{
+      await sb.rpc("approve_wallpaper_request", {p_request_id: r.id, p_approve: true});
+      await loadConversations(); openChatSettingsModal();
+    };
+    row.querySelector('[data-a="no"]').onclick = async ()=>{
+      await sb.rpc("approve_wallpaper_request", {p_request_id: r.id, p_approve: false});
+      openChatSettingsModal();
+    };
+    el.appendChild(row);
+  });
+}
+
+document.getElementById("muteToggle").onchange = async (e)=>{
+  if (!activeConvo) return;
+  await sb.from("member_settings").upsert({
+    conversation_id: activeConvo.id, user_id: me.id, notifications_enabled: e.target.checked
+  });
+  activeConvo.notificationsEnabled = e.target.checked;
+};
+
+function renderMembersList(conv){
+  const el = document.getElementById("membersList");
+  el.innerHTML = "";
+  const iCanPromote = conv.myRole === "creator" || conv.myRole === "moderator";
+  conv.members.forEach(m=>{
+    const row = document.createElement("div");
+    row.className = "memberRow";
+    const roleLabel = m.role==="creator" ? "créateur" : m.role==="moderator" ? "modérateur" : "membre";
+    row.innerHTML = `<div class="pfp">${m.user_id===me.id ? "🙂" : "👤"}</div>
+      <span style="font-size:13px;">${m.user_id===me.id ? "Toi" : escapeHtml(shortName(m))}</span>
+      <span class="roleTag ${m.role}">${roleLabel}</span>`;
+    if (iCanPromote && m.role === "member"){
+      const btn = document.createElement("button");
+      btn.className = "promoteBtn";
+      btn.textContent = "Promouvoir modérateur";
+      btn.onclick = async ()=>{
+        const {error} = await sb.rpc("promote_moderator", {p_conversation_id: conv.id, p_user_id: m.user_id});
+        if (error) return alert(traduireRpc(error.message));
+        await loadConversations();
+        activeConvo = conversations.find(c=>c.id===conv.id);
+        renderMembersList(activeConvo);
+      };
+      row.appendChild(btn);
+    }
+    el.appendChild(row);
+  });
+}
+
+/* ============================================================
+   UTIL
+============================================================ */
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+/* ============================================================
+   INIT
+============================================================ */
+(async function init(){
+  const {data:{session}} = await sb.auth.getSession();
+  if (session) await boot();
+})();
+</script>
+</body>
+</html>
