@@ -237,6 +237,23 @@
   .settingsGroup h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin:0 0 10px;}
   .row-between{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
   .radioGroup label{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px;cursor:pointer;}
+  .modoTag{background:var(--warn);color:#241c04;font-size:9px;font-weight:800;padding:2px 6px;border-radius:6px;margin-left:6px;letter-spacing:.03em;}
+  .nickBtn{background:transparent;border:none;color:var(--text-dim);font-size:11px;text-decoration:underline;margin-left:8px;}
+  .nickBtn:hover{color:var(--accent-2);}
+  .customRow{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  .customRow .pfp{width:28px;height:28px;font-size:11px;}
+  .customRow input[type=text]{
+    flex:1;min-width:100px;padding:6px 9px;background:var(--panel-2);border:1px solid var(--border);
+    border-radius:7px;color:var(--text);font-size:12px;
+  }
+  .customRow input[type=text]:disabled{opacity:.4;}
+  .customRow input[type=color]{width:34px;height:26px;border:none;background:none;padding:0;cursor:pointer;}
+  .readReceipt{font-size:9px;color:var(--text-dim);margin-top:2px;}
+  .adminRow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;}
+  .adminRow:last-child{border-bottom:none;}
+  .adminRow button{border:none;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;}
+  .avatarField{display:flex;gap:8px;margin-top:8px;}
+  .avatarField input{flex:1;}
 </style>
 </head>
 <body>
@@ -282,6 +299,7 @@
           <div class="li-name" id="myEmail"></div>
           <div class="me-code">Code: <b id="myCode">...</b></div>
         </div>
+        <button class="icon-btn" id="openAdminPanel" title="Panneau Modo" style="display:none;">🛡</button>
         <button class="icon-btn" id="openAccountSettings" title="Paramètres du compte">⚙</button>
       </div>
       <div class="sidebar-tabs">
@@ -394,8 +412,31 @@
     </div>
 
     <div class="settingsGroup">
+      <h3>Photo de profil</h3>
+      <p class="modalSub" style="margin:0 0 8px;">Colle un lien direct vers une image. On recommande <a href="https://x02.me/" target="_blank" style="color:var(--accent-2);">x02.me</a> pour héberger tes photos.</p>
+      <div class="avatarField">
+        <input type="text" id="avatarUrlInput" placeholder="https://x02.me/...">
+        <button class="btn-primary" style="width:auto;padding:0 16px;margin:0;" id="saveAvatarBtn">Sauver</button>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
       <button class="btn-primary" style="background:#3a3f52;" id="logoutBtn">Déconnexion</button>
     </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: PANNEAU ADMIN (MODO) ===================== -->
+<div class="overlay" id="adminOverlay">
+  <div class="modal">
+    <button class="modal-close" id="closeAdminPanel">✕</button>
+    <h2>Panneau Modo</h2>
+    <p class="modalSub">Recherche un compte par courriel ou code RZA</p>
+    <div class="addFriendRow">
+      <input id="adminSearchInput" placeholder="courriel ou RZA-XXXX" style="text-transform:none;">
+      <button id="adminSearchBtn">🔍</button>
+    </div>
+    <div id="adminResults"></div>
   </div>
 </div>
 
@@ -419,6 +460,27 @@ let conversations = [];  // liste enrichie
 let activeConvo = null;  // conversation active complète
 let msgChannel = null;
 let convoChannel = null;
+let nicknames = {};      // target_user_id -> surnom perso
+let profilesCache = {};  // user_id -> {email, code, avatar_url, is_admin}
+
+function cacheProfile(p){
+  if (!p) return;
+  profilesCache[p.id] = {email:p.email, code:p.code, avatar_url:p.avatar_url, is_admin:p.is_admin};
+}
+function pfpHtml(userId, sizeClass){
+  const p = profilesCache[userId];
+  if (p && p.avatar_url) return `<div class="pfp ${sizeClass||''}"><img src="${p.avatar_url}" onerror="this.parentElement.textContent='👤'"></div>`;
+  return `<div class="pfp ${sizeClass||''}">${userId===me?.id ? "🙂" : "👤"}</div>`;
+}
+function modoTag(userId){
+  const p = profilesCache[userId];
+  return (p && p.is_admin) ? `<span class="modoTag">Modo</span>` : "";
+}
+function nameFor(userId){
+  if (nicknames[userId]) return nicknames[userId];
+  const p = profilesCache[userId];
+  return p ? p.email.split("@")[0] : "?";
+}
 
 /* ============================================================
    AUTH — onglets
@@ -487,12 +549,26 @@ async function boot(){
   }
   me = profile;
 
+  if (me.is_blocked){
+    alert("Ton compte a été bloqué par un modérateur.");
+    await sb.auth.signOut();
+    return;
+  }
+
+  cacheProfile(me);
+
   document.getElementById("authScreen").style.display = "none";
   document.getElementById("app").style.display = "block";
   document.getElementById("myEmail").textContent = me.email;
   document.getElementById("myCode").textContent = me.code;
   document.getElementById("globalNotifToggle").checked = me.notifications_enabled;
   document.querySelector(`input[name=faviconMode][value="${me.favicon_mode}"]`).checked = true;
+  document.getElementById("avatarUrlInput").value = me.avatar_url || "";
+  document.getElementById("openAdminPanel").style.display = me.is_admin ? "inline-block" : "none";
+
+  const {data: nicksData} = await sb.from("nicknames").select("*").eq("viewer_id", me.id);
+  nicknames = {};
+  (nicksData||[]).forEach(n=> nicknames[n.target_user_id] = n.nickname);
 
   await loadFriends();
   await loadConversations();
@@ -521,12 +597,13 @@ document.getElementById("addFriendBtn").onclick = async ()=>{
 async function loadFriends(){
   const {data} = await sb
     .from("friends")
-    .select("id, status, requester_id, addressee_id, requester:requester_id(id,email,code), addressee:addressee_id(id,email,code)")
+    .select("id, status, requester_id, addressee_id, requester:requester_id(id,email,code,avatar_url,is_admin), addressee:addressee_id(id,email,code,avatar_url,is_admin)")
     .or(`requester_id.eq.${me.id},addressee_id.eq.${me.id}`);
 
   friends = (data||[]).map(f=>{
     const isMeRequester = f.requester_id === me.id;
     const other = isMeRequester ? f.addressee : f.requester;
+    cacheProfile(other);
     return {
       requestId: f.id,
       status: f.status,
@@ -552,8 +629,8 @@ function renderFriends(){
     pendingIncoming.forEach(f=>{
       const row = document.createElement("div");
       row.className = "listItem";
-      row.innerHTML = `<div class="pfp">👤</div>
-        <div class="li-text"><div class="li-name">${escapeHtml(f.email)}</div>
+      row.innerHTML = `${pfpHtml(f.id)}
+        <div class="li-text"><div class="li-name">${escapeHtml(f.email)} ${modoTag(f.id)}</div>
         <div class="li-sub">${f.code}</div></div>
         <button class="acceptBtn">Accepter</button>`;
       row.querySelector(".acceptBtn").onclick = async (ev)=>{
@@ -574,9 +651,25 @@ function renderFriends(){
   accepted.forEach(f=>{
     const row = document.createElement("div");
     row.className = "listItem";
-    row.innerHTML = `<div class="pfp">👤</div>
-      <div class="li-text"><div class="li-name">${escapeHtml(f.email)}</div>
-      <div class="li-sub">${f.code}</div></div>`;
+    const displayName = nicknames[f.id] || f.email;
+    row.innerHTML = `${pfpHtml(f.id)}
+      <div class="li-text"><div class="li-name">${escapeHtml(displayName)} ${modoTag(f.id)}</div>
+      <div class="li-sub">${f.code}</div></div>
+      <button class="nickBtn" data-rename>✎</button>`;
+    row.querySelector("[data-rename]").onclick = async (ev)=>{
+      ev.stopPropagation();
+      const nv = prompt("Surnom pour " + f.email + " (vide pour retirer) :", nicknames[f.id] || "");
+      if (nv === null) return;
+      if (nv.trim() === ""){
+        await sb.from("nicknames").delete().eq("viewer_id", me.id).eq("target_user_id", f.id);
+        delete nicknames[f.id];
+      } else {
+        await sb.from("nicknames").upsert({viewer_id: me.id, target_user_id: f.id, nickname: nv.trim()});
+        nicknames[f.id] = nv.trim();
+      }
+      renderFriends();
+      if (activeConvo) { renderConvos(); renderMessages(activeConvo); }
+    };
     row.onclick = async ()=>{
       const conv = conversations.find(c=> c.type==="dm" && c.memberIds.includes(f.id));
       if (conv) openConversation(conv.id);
@@ -641,23 +734,27 @@ async function loadConversations(){
   if (!ids.length){ conversations = []; renderConvos(); return; }
 
   const {data: convs} = await sb.from("conversations").select("*").in("id", ids);
-  const {data: members} = await sb.from("conversation_members").select("conversation_id,user_id,role,profiles:user_id(id,email,code)").in("conversation_id", ids);
+  const {data: members} = await sb.from("conversation_members").select("conversation_id,user_id,role,profiles:user_id(id,email,code,avatar_url,is_admin)").in("conversation_id", ids);
   const {data: settings} = await sb.from("member_settings").select("*").eq("user_id", me.id).in("conversation_id", ids);
+  const {data: reads} = await sb.from("read_state").select("*").eq("user_id", me.id).in("conversation_id", ids);
+
+  members.forEach(m=> cacheProfile(m.profiles));
 
   conversations = convs.map(c=>{
     const mem = members.filter(m=>m.conversation_id===c.id);
     const myRole = mine.find(m=>m.conversation_id===c.id).role;
     const mySettings = (settings||[]).find(s=>s.conversation_id===c.id) || {};
+    const myRead = (reads||[]).find(r=>r.conversation_id===c.id);
     let displayName = c.name;
     if (c.type === "dm"){
       const other = mem.find(m=>m.user_id !== me.id);
-      displayName = other ? other.profiles.email : "?";
+      displayName = other ? (nicknames[other.user_id] || other.profiles.email) : "?";
     }
     return {
       ...c, members: mem, myRole, displayName,
       memberIds: mem.map(m=>m.user_id),
       notificationsEnabled: mySettings.notifications_enabled !== false,
-      lastReadAt: mySettings.last_read_at || c.created_at
+      lastReadAt: myRead ? myRead.last_read_at : c.created_at
     };
   });
 
@@ -708,22 +805,36 @@ async function openConversation(convoId){
   const wrap = document.getElementById("convoWrap");
   wrap.style.display = "flex";
 
-  document.getElementById("chatPfp").textContent = conv.type==="group" ? "👥" : "👤";
-  document.getElementById("chatName").textContent = conv.displayName;
+  const chatPfpEl = document.getElementById("chatPfp");
+  if (conv.type === "group"){ chatPfpEl.innerHTML = "👥"; }
+  else {
+    const other = conv.members.find(m=>m.user_id!==me.id);
+    const p = other && profilesCache[other.user_id];
+    chatPfpEl.innerHTML = (p && p.avatar_url) ? `<img src="${p.avatar_url}" onerror="this.remove()">` : "👤";
+  }
+  document.getElementById("chatName").innerHTML = escapeHtml(conv.displayName) +
+    (conv.type==="dm" ? modoTag(conv.members.find(m=>m.user_id!==me.id)?.user_id) : "");
   document.getElementById("chatSub").textContent = conv.type==="group" ? conv.members.length+" membres" : "Message privé";
 
   await loadBubbleColors(conv);
   await applyWallpaper(conv);
   await loadMessages(conv);
+  await loadReadState(conv);
   renderConvos();
 
-  await sb.from("member_settings").upsert({
+  await sb.from("read_state").upsert({
     conversation_id: conv.id, user_id: me.id, last_read_at: new Date().toISOString()
   });
   conv.unread = 0; conv.lastReadAt = new Date().toISOString();
   renderConvos(); updateFaviconTitle();
 
   listenToConvoMessages(conv.id);
+}
+
+async function loadReadState(conv){
+  const {data} = await sb.from("read_state").select("*").eq("conversation_id", conv.id);
+  conv.readState = {};
+  (data||[]).forEach(r=> conv.readState[r.user_id] = r.last_read_at);
 }
 
 async function loadBubbleColors(conv){
@@ -761,15 +872,25 @@ function renderMessages(conv){
   } else {
     el.querySelector(".emptyState")?.remove();
   }
-  conv.messages.forEach(m=> el.appendChild(renderMessageRow(conv, m)));
+  const lastMineId = [...conv.messages].reverse().find(m=>m.sender_id===me.id)?.id;
+  conv.messages.forEach(m=> el.appendChild(renderMessageRow(conv, m, m.id===lastMineId)));
   el.scrollTop = el.scrollHeight;
 }
 
-function renderMessageRow(conv, m){
+function readReceiptText(conv, msg){
+  const others = conv.members.filter(m=>m.user_id!==me.id);
+  if (!others.length || !conv.readState) return "";
+  const readers = others.filter(o=> conv.readState[o.user_id] && conv.readState[o.user_id] >= msg.created_at);
+  if (!readers.length) return "";
+  if (conv.type === "dm") return "Vu";
+  return `Vu par ${readers.length}/${others.length}`;
+}
+
+function renderMessageRow(conv, m, isLastMine){
   const mine = m.sender_id === me.id;
   const row = document.createElement("div");
   row.className = "msgRow " + (mine ? "mine" : "theirs");
-  const senderName = mine ? "Toi" : (conv.members.find(x=>x.user_id===m.sender_id)?.profiles.email || "?");
+  const senderName = mine ? "Toi" : nameFor(m.sender_id);
   const color = conv.bubbleColors[m.sender_id] || DEFAULT_BUBBLE_COLOR;
 
   const now = Date.now();
@@ -777,8 +898,10 @@ function renderMessageRow(conv, m){
   const canDelete = mine && !m.deleted && (now - created) < 5*60*1000;
   const canEdit = mine && !m.deleted && (now - created) < 15*60*1000;
 
+  const receipt = (mine && isLastMine) ? readReceiptText(conv, m) : "";
+
   row.innerHTML = `
-    ${conv.type==="group" ? `<div class="msgSender">${escapeHtml(senderName)}</div>` : ""}
+    ${conv.type==="group" ? `<div class="msgSender">${escapeHtml(senderName)}${!mine ? modoTag(m.sender_id) : ""}</div>` : ""}
     <div class="bubble" style="background:${m.deleted ? "#2a2f3d" : color}; color:${m.deleted ? "#7a8196" : "#fff"};">
       ${m.deleted ? "<i>Message supprimé</i>" : escapeHtml(m.content)}
     </div>
@@ -786,7 +909,8 @@ function renderMessageRow(conv, m){
       <span>${new Date(m.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}${m.edited_at ? " · modifié" : ""}</span>
       ${canEdit ? `<button data-act="edit">modifier</button>` : ""}
       ${canDelete ? `<button data-act="del">supprimer</button>` : ""}
-    </div>`;
+    </div>
+    ${receipt ? `<div class="readReceipt">${receipt}</div>` : ""}`;
 
   if (canEdit) row.querySelector('[data-act="edit"]').onclick = async ()=>{
     const nv = prompt("Modifier le message :", m.content);
@@ -826,6 +950,14 @@ function listenToConvoMessages(convoId){
       if (payload.eventType === "INSERT") activeConvo.messages.push(payload.new);
       else if (payload.eventType === "UPDATE" && idx>-1) activeConvo.messages[idx] = payload.new;
       renderMessages(activeConvo);
+    })
+    .on("postgres_changes", {event:"*", schema:"public", table:"read_state", filter:`conversation_id=eq.${convoId}`}, payload=>{
+      if (!activeConvo || activeConvo.id !== convoId) return;
+      if (payload.new && payload.new.user_id !== me.id){
+        activeConvo.readState = activeConvo.readState || {};
+        activeConvo.readState[payload.new.user_id] = payload.new.last_read_at;
+        renderMessages(activeConvo);
+      }
     }).subscribe();
 }
 
@@ -895,6 +1027,65 @@ document.querySelectorAll('input[name=faviconMode]').forEach(r=>{
 });
 document.getElementById("logoutBtn").onclick = async ()=>{ await sb.auth.signOut(); };
 
+document.getElementById("saveAvatarBtn").onclick = async ()=>{
+  const url = document.getElementById("avatarUrlInput").value.trim();
+  me.avatar_url = url || null;
+  await sb.from("profiles").update({avatar_url: me.avatar_url}).eq("id", me.id);
+  cacheProfile(me);
+  alert("Photo mise à jour.");
+  renderFriends();
+  if (activeConvo) renderMessages(activeConvo);
+};
+
+/* ============================================================
+   PANNEAU ADMIN (MODO)
+============================================================ */
+document.getElementById("openAdminPanel").onclick = ()=> document.getElementById("adminOverlay").classList.add("show");
+document.getElementById("closeAdminPanel").onclick = ()=> document.getElementById("adminOverlay").classList.remove("show");
+
+document.getElementById("adminSearchBtn").onclick = adminSearch;
+document.getElementById("adminSearchInput").addEventListener("keydown", e=>{ if(e.key==="Enter") adminSearch(); });
+
+async function adminSearch(){
+  const q = document.getElementById("adminSearchInput").value.trim();
+  const el = document.getElementById("adminResults");
+  if (!q){ el.innerHTML = ""; return; }
+  const {data, error} = await sb.from("profiles").select("*")
+    .or(`email.ilike.%${q}%,code.ilike.%${q}%`)
+    .neq("id", me.id).limit(20);
+  if (error){ el.innerHTML = `<div class="li-sub">${error.message}</div>`; return; }
+  el.innerHTML = "";
+  if (!data.length){ el.innerHTML = `<div class="li-sub">Aucun résultat.</div>`; return; }
+  data.forEach(p=>{
+    cacheProfile(p);
+    const row = document.createElement("div");
+    row.className = "adminRow";
+    row.innerHTML = `${pfpHtml(p.id)}
+      <span style="flex:1;">${escapeHtml(p.email)} <span class="li-sub">(${p.code})</span> ${modoTag(p.id)} ${p.is_blocked ? '<span class="modoTag" style="background:var(--accent);">Bloqué</span>' : ''}</span>
+      <button data-a="add" style="background:var(--accent-2);color:#08131f;">+ Ami</button>
+      <button data-a="block" style="background:${p.is_blocked ? 'var(--ok)':'var(--warn)'};color:#241c04;">${p.is_blocked ? 'Débloquer' : 'Bloquer'}</button>
+      <button data-a="del" style="background:var(--accent);color:#fff;">Supprimer</button>`;
+    row.querySelector('[data-a="add"]').onclick = async ()=>{
+      const {error} = await sb.rpc("admin_add_friend", {p_target: p.id});
+      if (error) return alert(traduireRpc(error.message));
+      await loadFriends(); await loadConversations();
+      alert("Ajouté comme ami.");
+    };
+    row.querySelector('[data-a="block"]').onclick = async ()=>{
+      const {error} = await sb.rpc("admin_set_blocked", {p_target: p.id, p_blocked: !p.is_blocked});
+      if (error) return alert(traduireRpc(error.message));
+      adminSearch();
+    };
+    row.querySelector('[data-a="del"]').onclick = async ()=>{
+      if (!confirm(`Supprimer définitivement le compte de ${p.email} ?`)) return;
+      const {error} = await sb.rpc("admin_delete_account", {p_target: p.id});
+      if (error) return alert(traduireRpc(error.message));
+      adminSearch();
+    };
+    el.appendChild(row);
+  });
+}
+
 /* ============================================================
    PARAMÈTRES DE DISCUSSION (engrenage)
 ============================================================ */
@@ -950,24 +1141,52 @@ function shortName(m){ return (m.profiles.email||"?").split("@")[0]; }
 function renderColorRows(conv){
   const el = document.getElementById("colorRows");
   el.innerHTML = "";
+  const iAmModOrCreator = conv.myRole === "creator" || conv.myRole === "moderator";
+  const nicknamesLocked = conv.type === "group" && !conv.nicknames_allowed && !iAmModOrCreator;
+
   conv.members.forEach(m=>{
     const row = document.createElement("div");
-    row.className = "colorRow";
-    row.innerHTML = `<div class="pfp">${m.user_id===me.id ? "🙂" : "👤"}</div>
-      <span style="font-size:13px;">${m.user_id===me.id ? "Toi" : escapeHtml(shortName(m))}</span>
+    row.className = "customRow";
+    const isMe = m.user_id === me.id;
+    row.innerHTML = `${pfpHtml(m.user_id)}
+      <span style="font-size:12px;min-width:60px;">${isMe ? "Toi" : escapeHtml(shortName(m))}${modoTag(m.user_id)}</span>
+      ${!isMe ? `<input type="text" placeholder="surnom" value="${escapeHtml(nicknames[m.user_id]||"")}" ${nicknamesLocked?"disabled":""}>` : `<span style="flex:1;"></span>`}
       <input type="color" value="${conv.bubbleColors[m.user_id]||DEFAULT_BUBBLE_COLOR}">`;
-    row.querySelector("input").oninput = async (e)=>{
+
+    row.querySelector('input[type=color]').oninput = (e)=>{
       conv.bubbleColors[m.user_id] = e.target.value;
       renderPreview(conv);
     };
-    row.querySelector("input").onchange = async (e)=>{
+    row.querySelector('input[type=color]').onchange = async (e)=>{
       await sb.from("member_bubble_colors").upsert({
         conversation_id: conv.id, viewer_id: me.id, target_user_id: m.user_id, color: e.target.value
       });
       renderMessages(conv);
     };
+
+    const nickInput = row.querySelector('input[type=text]');
+    if (nickInput){
+      nickInput.onchange = async (e)=>{
+        const nv = e.target.value.trim();
+        if (nv === ""){
+          await sb.from("nicknames").delete().eq("viewer_id", me.id).eq("target_user_id", m.user_id);
+          delete nicknames[m.user_id];
+        } else {
+          await sb.from("nicknames").upsert({viewer_id: me.id, target_user_id: m.user_id, nickname: nv});
+          nicknames[m.user_id] = nv;
+        }
+        renderPreview(conv); renderFriends(); renderMessages(conv); renderConvos();
+      };
+    }
     el.appendChild(row);
   });
+
+  if (conv.type === "group" && nicknamesLocked){
+    const hint = document.createElement("div");
+    hint.className = "li-sub";
+    hint.textContent = "Un modérateur a désactivé les surnoms dans ce groupe.";
+    el.appendChild(hint);
+  }
 }
 
 document.getElementById("wallModePublic").onclick = ()=>{ wallMode="public"; toggleWallButtons(); };
