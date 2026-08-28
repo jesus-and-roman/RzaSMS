@@ -850,7 +850,7 @@ async function applyWallpaper(conv){
     .eq("conversation_id", conv.id).eq("user_id", me.id).maybeSingle();
   const idx = (settings && settings.wallpaper_private) || conv.wallpaper_public;
   const msgsEl = document.getElementById("messagesEl");
-  msgsEl.style.backgroundImage = idx ? `url(assets/img/wallpaper${idx}.png)` : "none";
+  msgsEl.style.backgroundImage = idx ? `url(assets/img/wallpaper/wallpaper${idx}.png)` : "none";
 }
 
 async function loadMessages(conv){
