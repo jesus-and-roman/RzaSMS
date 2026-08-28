@@ -149,6 +149,14 @@
   .msgRow.mine{align-self:flex-end;align-items:flex-end;}
   .msgRow.theirs{align-self:flex-start;align-items:flex-start;}
   .msgSender{font-size:10px;color:var(--text-dim);margin:0 6px 3px;}
+  .msgWithAvatar{display:flex;gap:8px;align-items:flex-end;}
+  .msgWithAvatar.mine{flex-direction:row-reverse;}
+  .msgAvatar{width:26px;height:26px;border-radius:50%;background:#2a3040;flex-shrink:0;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-dim);}
+  .msgAvatar img{width:100%;height:100%;object-fit:cover;}
+  .msgBody{display:flex;flex-direction:column;min-width:0;}
+  .msgWithAvatar.mine .msgBody{align-items:flex-end;}
+  .msgWithAvatar.theirs .msgBody{align-items:flex-start;}
   .bubble{
     padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.4;position:relative;
     box-shadow:0 2px 6px rgba(0,0,0,.25);
@@ -254,6 +262,18 @@
   .adminRow button{border:none;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;}
   .avatarField{display:flex;gap:8px;margin-top:8px;}
   .avatarField input{flex:1;}
+  .bubble{font-size:var(--msg-size, 14px);}
+  .segRow{display:flex;gap:6px;margin-bottom:14px;}
+  .segRow button{
+    flex:1;padding:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);
+    border-radius:8px;font-size:12px;
+  }
+  .segRow button.active{border-color:var(--accent-2);color:var(--text);}
+  .blockBtn{
+    width:100%;padding:9px;background:transparent;border:1px solid var(--accent);color:var(--accent);
+    border-radius:8px;font-size:12px;margin-top:6px;
+  }
+  .blockBtn.blocked{border-color:var(--ok);color:var(--ok);}
 </style>
 </head>
 <body>
@@ -381,6 +401,18 @@
       </div>
     </div>
 
+    <div class="settingsGroup" id="nickPermGroup" style="display:none;">
+      <div class="row-between">
+        <span style="font-size:13px;">Autoriser les surnoms dans ce groupe</span>
+        <label class="switch"><input type="checkbox" id="nicknamesAllowedToggle"><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="settingsGroup" id="blockGroup" style="display:none;">
+      <h3>Contact</h3>
+      <button class="blockBtn" id="blockContactBtn">Bloquer ce contact</button>
+    </div>
+
     <div class="settingsGroup" id="membersGroup" style="display:none;">
       <h3>Membres et modération</h3>
       <div id="membersList"></div>
@@ -408,6 +440,31 @@
         <label><input type="radio" name="faviconMode" value="double-l"> Double-L — ajoute des "l" à Pluriportail</label>
         <label><input type="radio" name="faviconMode" value="image-l"> Image-L — change l'icône de l'onglet</label>
         <label><input type="radio" name="faviconMode" value="off"> Désactivé</label>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Son des nouveaux messages</h3>
+      <div class="row-between">
+        <span style="font-size:13px;">Jouer un son</span>
+        <label class="switch"><input type="checkbox" id="soundToggle" checked><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Taille du texte</h3>
+      <div class="segRow" id="textSizeRow">
+        <button data-size="12px">Petit</button>
+        <button data-size="14px" class="active">Normal</button>
+        <button data-size="17px">Grand</button>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Confidentialité</h3>
+      <div class="row-between">
+        <span style="font-size:13px;">Envoyer les accusés de lecture ("Vu")</span>
+        <label class="switch"><input type="checkbox" id="readReceiptsToggle" checked><span class="slider"></span></label>
       </div>
     </div>
 
@@ -465,7 +522,7 @@ let profilesCache = {};  // user_id -> {email, code, avatar_url, is_admin}
 
 function cacheProfile(p){
   if (!p) return;
-  profilesCache[p.id] = {email:p.email, code:p.code, avatar_url:p.avatar_url, is_admin:p.is_admin};
+  profilesCache[p.id] = {email:p.email, code:p.code, avatar_url:p.avatar_url, is_admin:p.is_admin, read_receipts_enabled:p.read_receipts_enabled};
 }
 function pfpHtml(userId, sizeClass){
   const p = profilesCache[userId];
@@ -565,6 +622,15 @@ async function boot(){
   document.querySelector(`input[name=faviconMode][value="${me.favicon_mode}"]`).checked = true;
   document.getElementById("avatarUrlInput").value = me.avatar_url || "";
   document.getElementById("openAdminPanel").style.display = me.is_admin ? "inline-block" : "none";
+  document.getElementById("readReceiptsToggle").checked = me.read_receipts_enabled !== false;
+
+  const savedSound = localStorage.getItem("rza_sound");
+  document.getElementById("soundToggle").checked = savedSound !== "off";
+  const savedSize = localStorage.getItem("rza_textsize") || "14px";
+  document.documentElement.style.setProperty("--msg-size", savedSize);
+  document.querySelectorAll("#textSizeRow button").forEach(b=>{
+    b.classList.toggle("active", b.dataset.size === savedSize);
+  });
 
   const {data: nicksData} = await sb.from("nicknames").select("*").eq("viewer_id", me.id);
   nicknames = {};
@@ -689,7 +755,8 @@ function traduireRpc(msg){
     fenetre_suppression_expiree: "Le délai de 5 minutes pour supprimer est dépassé.",
     fenetre_modification_expiree: "Le délai de 15 minutes pour modifier est dépassé.",
     message_supprime: "Ce message est supprimé.",
-    pas_proprietaire: "Ce n'est pas ton message."
+    pas_proprietaire: "Ce n'est pas ton message.",
+    contact_bloque: "Message impossible : contact bloqué."
   };
   for (const k in map) if (msg.includes(k)) return map[k];
   return msg;
@@ -734,7 +801,7 @@ async function loadConversations(){
   if (!ids.length){ conversations = []; renderConvos(); return; }
 
   const {data: convs} = await sb.from("conversations").select("*").in("id", ids);
-  const {data: members} = await sb.from("conversation_members").select("conversation_id,user_id,role,profiles:user_id(id,email,code,avatar_url,is_admin)").in("conversation_id", ids);
+  const {data: members} = await sb.from("conversation_members").select("conversation_id,user_id,role,profiles:user_id(id,email,code,avatar_url,is_admin,read_receipts_enabled)").in("conversation_id", ids);
   const {data: settings} = await sb.from("member_settings").select("*").eq("user_id", me.id).in("conversation_id", ids);
   const {data: reads} = await sb.from("read_state").select("*").eq("user_id", me.id).in("conversation_id", ids);
 
@@ -820,6 +887,7 @@ async function openConversation(convoId){
   await applyWallpaper(conv);
   await loadMessages(conv);
   await loadReadState(conv);
+  await loadBlockInfo(conv);
   renderConvos();
 
   await sb.from("read_state").upsert({
@@ -835,6 +903,17 @@ async function loadReadState(conv){
   const {data} = await sb.from("read_state").select("*").eq("conversation_id", conv.id);
   conv.readState = {};
   (data||[]).forEach(r=> conv.readState[r.user_id] = r.last_read_at);
+}
+
+async function loadBlockInfo(conv){
+  conv.blockedBy = null;
+  if (conv.type !== "dm") return;
+  const other = conv.members.find(m=>m.user_id!==me.id);
+  if (!other) return;
+  const {data} = await sb.from("friends").select("blocked_by")
+    .or(`and(requester_id.eq.${me.id},addressee_id.eq.${other.user_id}),and(requester_id.eq.${other.user_id},addressee_id.eq.${me.id})`)
+    .maybeSingle();
+  conv.blockedBy = data ? data.blocked_by : null;
 }
 
 async function loadBubbleColors(conv){
@@ -880,7 +959,11 @@ function renderMessages(conv){
 function readReceiptText(conv, msg){
   const others = conv.members.filter(m=>m.user_id!==me.id);
   if (!others.length || !conv.readState) return "";
-  const readers = others.filter(o=> conv.readState[o.user_id] && conv.readState[o.user_id] >= msg.created_at);
+  const readers = others.filter(o=>{
+    const p = profilesCache[o.user_id];
+    if (p && p.read_receipts_enabled === false) return false;
+    return conv.readState[o.user_id] && conv.readState[o.user_id] >= msg.created_at;
+  });
   if (!readers.length) return "";
   if (conv.type === "dm") return "Vu";
   return `Vu par ${readers.length}/${others.length}`;
@@ -888,49 +971,61 @@ function readReceiptText(conv, msg){
 
 function renderMessageRow(conv, m, isLastMine){
   const mine = m.sender_id === me.id;
-  const row = document.createElement("div");
-  row.className = "msgRow " + (mine ? "mine" : "theirs");
+  const outer = document.createElement("div");
+  outer.className = "msgRow " + (mine ? "mine" : "theirs");
+
   const senderName = mine ? "Toi" : nameFor(m.sender_id);
   const color = conv.bubbleColors[m.sender_id] || DEFAULT_BUBBLE_COLOR;
+  const p = profilesCache[m.sender_id];
+  const avatarInner = (p && p.avatar_url) ? `<img src="${p.avatar_url}" onerror="this.parentElement.textContent='👤'">` : (mine ? "🙂" : "👤");
 
   const now = Date.now();
   const created = new Date(m.created_at).getTime();
   const canDelete = mine && !m.deleted && (now - created) < 5*60*1000;
   const canEdit = mine && !m.deleted && (now - created) < 15*60*1000;
-
   const receipt = (mine && isLastMine) ? readReceiptText(conv, m) : "";
 
-  row.innerHTML = `
-    ${conv.type==="group" ? `<div class="msgSender">${escapeHtml(senderName)}${!mine ? modoTag(m.sender_id) : ""}</div>` : ""}
-    <div class="bubble" style="background:${m.deleted ? "#2a2f3d" : color}; color:${m.deleted ? "#7a8196" : "#fff"};">
-      ${m.deleted ? "<i>Message supprimé</i>" : escapeHtml(m.content)}
-    </div>
-    <div class="msgMeta">
-      <span>${new Date(m.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}${m.edited_at ? " · modifié" : ""}</span>
-      ${canEdit ? `<button data-act="edit">modifier</button>` : ""}
-      ${canDelete ? `<button data-act="del">supprimer</button>` : ""}
-    </div>
-    ${receipt ? `<div class="readReceipt">${receipt}</div>` : ""}`;
+  const wrap = document.createElement("div");
+  wrap.className = "msgWithAvatar " + (mine ? "mine" : "theirs");
+  wrap.innerHTML = `
+    <div class="msgAvatar">${avatarInner}</div>
+    <div class="msgBody">
+      <div class="msgSender">${escapeHtml(senderName)}${!mine ? modoTag(m.sender_id) : ""}</div>
+      <div class="bubble" style="background:${m.deleted ? "#2a2f3d" : color}; color:${m.deleted ? "#7a8196" : "#fff"};">
+        ${m.deleted ? "<i>Message supprimé</i>" : escapeHtml(m.content)}
+      </div>
+      <div class="msgMeta">
+        <span>${new Date(m.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}${m.edited_at ? " · modifié" : ""}</span>
+        ${canEdit ? `<button data-act="edit">modifier</button>` : ""}
+        ${canDelete ? `<button data-act="del">supprimer</button>` : ""}
+      </div>
+      ${receipt ? `<div class="readReceipt">${receipt}</div>` : ""}
+    </div>`;
 
-  if (canEdit) row.querySelector('[data-act="edit"]').onclick = async ()=>{
+  if (canEdit) wrap.querySelector('[data-act="edit"]').onclick = async ()=>{
     const nv = prompt("Modifier le message :", m.content);
     if (nv == null || nv.trim()==="") return;
     const {error} = await sb.from("messages").update({content: nv.trim()}).eq("id", m.id);
     if (error) alert(traduireRpc(error.message));
   };
-  if (canDelete) row.querySelector('[data-act="del"]').onclick = async ()=>{
+  if (canDelete) wrap.querySelector('[data-act="del"]').onclick = async ()=>{
     if (!confirm("Supprimer ce message ?")) return;
     const {error} = await sb.from("messages").update({deleted:true}).eq("id", m.id);
     if (error) alert(traduireRpc(error.message));
   };
 
-  return row;
+  outer.appendChild(wrap);
+  return outer;
 }
 
 document.getElementById("sendBtn").onclick = sendMessage;
 document.getElementById("msgInput").addEventListener("keydown", e=>{ if(e.key==="Enter") sendMessage(); });
 async function sendMessage(){
   if (!activeConvo) return;
+  if (activeConvo.blockedBy){
+    alert(activeConvo.blockedBy === me.id ? "Débloque ce contact avant de lui écrire." : "Ce contact t'a bloqué.");
+    return;
+  }
   const input = document.getElementById("msgInput");
   const content = input.value.trim();
   if (!content) return;
@@ -973,6 +1068,7 @@ function subscribeRealtime(){
       conv.unread = (conv.unread||0) + 1;
       renderConvos();
       updateFaviconTitle();
+      playPing();
     })
     .on("postgres_changes", {event:"*", schema:"public", table:"friends"}, ()=> loadFriends())
     .subscribe();
@@ -1026,6 +1122,37 @@ document.querySelectorAll('input[name=faviconMode]').forEach(r=>{
   };
 });
 document.getElementById("logoutBtn").onclick = async ()=>{ await sb.auth.signOut(); };
+
+document.getElementById("soundToggle").onchange = (e)=>{
+  localStorage.setItem("rza_sound", e.target.checked ? "on" : "off");
+};
+
+document.querySelectorAll("#textSizeRow button").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll("#textSizeRow button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.documentElement.style.setProperty("--msg-size", b.dataset.size);
+    localStorage.setItem("rza_textsize", b.dataset.size);
+  };
+});
+
+document.getElementById("readReceiptsToggle").onchange = async (e)=>{
+  me.read_receipts_enabled = e.target.checked;
+  await sb.from("profiles").update({read_receipts_enabled: me.read_receipts_enabled}).eq("id", me.id);
+  cacheProfile(me);
+};
+
+function playPing(){
+  if (localStorage.getItem("rza_sound") === "off") return;
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 720; g.gain.value = 0.08;
+    o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+    o.stop(ctx.currentTime + 0.35);
+  }catch(e){}
+}
 
 document.getElementById("saveAvatarBtn").onclick = async ()=>{
   const url = document.getElementById("avatarUrlInput").value.trim();
@@ -1109,6 +1236,28 @@ async function openChatSettingsModal(){
   document.getElementById("modGroup").style.display = (conv.type==="group" && (conv.myRole==="creator"||conv.myRole==="moderator")) ? "block" : "none";
   if (conv.type==="group" && (conv.myRole==="creator"||conv.myRole==="moderator")) await renderWallRequests(conv);
 
+  const canManageNicks = conv.myRole==="creator" || conv.myRole==="moderator";
+  document.getElementById("nickPermGroup").style.display = (conv.type==="group" && canManageNicks) ? "block" : "none";
+  document.getElementById("nicknamesAllowedToggle").checked = conv.nicknames_allowed !== false;
+
+  document.getElementById("blockGroup").style.display = conv.type==="dm" ? "block" : "none";
+  if (conv.type==="dm"){
+    const other = conv.members.find(m=>m.user_id!==me.id);
+    const {data: fRow} = await sb.from("friends").select("blocked_by")
+      .or(`and(requester_id.eq.${me.id},addressee_id.eq.${other.user_id}),and(requester_id.eq.${other.user_id},addressee_id.eq.${me.id})`)
+      .maybeSingle();
+    const isBlocked = fRow && fRow.blocked_by === me.id;
+    const btn = document.getElementById("blockContactBtn");
+    btn.textContent = isBlocked ? "Débloquer ce contact" : "Bloquer ce contact";
+    btn.classList.toggle("blocked", isBlocked);
+    btn.onclick = async ()=>{
+      await sb.from("friends").update({blocked_by: isBlocked ? null : me.id})
+        .or(`and(requester_id.eq.${me.id},addressee_id.eq.${other.user_id}),and(requester_id.eq.${other.user_id},addressee_id.eq.${me.id})`);
+      await loadBlockInfo(conv);
+      openChatSettingsModal();
+    };
+  }
+
   document.getElementById("membersGroup").style.display = conv.type==="group" ? "block" : "none";
   if (conv.type==="group") renderMembersList(conv);
 
@@ -1122,7 +1271,7 @@ async function openChatSettingsModal(){
 function renderPreview(conv){
   const box = document.getElementById("previewBox");
   const idx = conv.wallpaper_public;
-  box.style.backgroundImage = idx ? `url(assets/img/wallpaper${idx}.png)` : "none";
+  box.style.backgroundImage = idx ? `url(assets/img/wallpaper/wallpaper${idx}.png)` : "none";
   box.innerHTML = "";
   conv.members.slice(0,4).forEach((m,i)=>{
     const bubble = document.createElement("div");
@@ -1256,7 +1405,7 @@ async function renderWallRequests(conv){
   data.forEach(r=>{
     const row = document.createElement("div");
     row.className = "reqRow";
-    row.innerHTML = `<div class="wallThumb" style="width:36px;height:36px;background-image:url(assets/img/wallpaper${r.wallpaper_index}.png)"></div>
+    row.innerHTML = `<div class="wallThumb" style="width:36px;height:36px;background-image:url(assets/img/wallpaper/wallpaper${r.wallpaper_index}.png)"></div>
       <span style="flex:1;">${escapeHtml(r.profiles.email)} propose le fond #${r.wallpaper_index}</span>
       <button data-a="ok" style="background:var(--ok);color:#04241a;">Accepter</button>
       <button data-a="no" style="background:#3a3f52;color:#fff;">Refuser</button>`;
@@ -1271,6 +1420,13 @@ async function renderWallRequests(conv){
     el.appendChild(row);
   });
 }
+
+document.getElementById("nicknamesAllowedToggle").onchange = async (e)=>{
+  if (!activeConvo) return;
+  await sb.from("conversations").update({nicknames_allowed: e.target.checked}).eq("id", activeConvo.id);
+  activeConvo.nicknames_allowed = e.target.checked;
+  renderColorRows(activeConvo);
+};
 
 document.getElementById("muteToggle").onchange = async (e)=>{
   if (!activeConvo) return;
