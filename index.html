@@ -1322,6 +1322,28 @@ function escapeHtml(s){
   const {data:{session}} = await sb.auth.getSession();
   if (session) await boot();
 })();
+
+/* ============================================================
+   RACCOURCIS CLAVIER
+============================================================ */
+document.addEventListener("keydown", (e) => {
+
+  // Échap → charge l'image
+  if (e.key === "Escape") {
+    e.preventDefault();
+    window.location.href = "assets/false/login.jpg";
+    return;
+  }
+
+  // # → ouvre le portail
+  if (e.key === "#") {
+    e.preventDefault();
+    window.location.href =
+      "https://portail.smrc.qc.ca/pluriportail/pfr/MainExterne.srf?P=LoginReq";
+  }
+
+});
+
 </script>
 </body>
 </html>
