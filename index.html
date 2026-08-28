@@ -17,7 +17,7 @@
     --accent: #ff5d73;
     --accent-2: #5da9ff;
     --ok: #45c98a;
-    --warn: #e8b63a;
+    --warn: #e8b64a;
     --radius: 14px;
     font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   }
@@ -1215,7 +1215,7 @@ async function renderWallGrid(conv){
   for (let i=1;i<=WALLPAPER_COUNT;i++){
     const thumb = document.createElement("div");
     thumb.className = "wallThumb" + (selected===i ? " selected" : "");
-    thumb.style.backgroundImage = `url(assets/img/wallpaper${i}.png)`;
+    thumb.style.backgroundImage = `url(assets/img/wallpaper/wallpaper${i}.png)`;
     thumb.onclick = ()=> chooseWallpaper(conv, i);
     el.appendChild(thumb);
   }
