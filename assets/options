@@ -1,0 +1,2 @@
+Pour mettre admin:
+UPDATE profiles SET is_admin = true WHERE email = 'ton-email@exemple.com';
