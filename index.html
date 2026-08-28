@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -303,12 +302,10 @@
         <button class="icon-btn" id="openAdminPanel" title="Panneau Modo" style="display:none;">🛡</button>
         <button class="icon-btn" id="openAccountSettings" title="Paramètres du compte">⚙</button>
       </div>
-
       <div class="sidebar-tabs">
         <button id="tabFriends" class="active">Amis</button>
         <button id="tabConvos">Discussions</button>
       </div>
-
       <div class="sidebar-body">
         <div id="panelFriends">
           <div class="addFriendRow">
@@ -319,7 +316,6 @@
           <div class="sectionLabel">Mes amis</div>
           <div id="friendsList"></div>
         </div>
-
         <div id="panelConvos" style="display:none;">
           <button class="newGroupBtn" id="newGroupBtn">+ Nouveau groupe</button>
           <div id="convosList" style="margin-top:10px;"></div>
@@ -329,8 +325,7 @@
 
     <div class="chatArea">
       <div id="noConvo" class="noSelection">Sélectionne une discussion</div>
-
-      <div id="convoWrap" style="display:none;flex:1;flex-direction:column;min-height:0;">
+      <div id="convoWrap" style="display:none;flex:1;display:none;flex-direction:column;min-height:0;">
         <div class="chatHeader">
           <div class="pfp" id="chatPfp">👤</div>
           <div>
@@ -339,9 +334,7 @@
           </div>
           <button class="gearBtn" id="openChatSettings">⚙</button>
         </div>
-
         <div class="messages" id="messagesEl"></div>
-
         <div class="composer">
           <input id="msgInput" placeholder="Écris un message...">
           <button id="sendBtn">Envoyer</button>
@@ -384,10 +377,7 @@
       <h3>Notifications pour ce chat</h3>
       <div class="row-between">
         <span style="font-size:13px;">Recevoir les notifications</span>
-        <label class="switch">
-          <input type="checkbox" id="muteToggle">
-          <span class="slider"></span>
-        </label>
+        <label class="switch"><input type="checkbox" id="muteToggle"><span class="slider"></span></label>
       </div>
     </div>
 
@@ -408,10 +398,7 @@
     <div class="settingsGroup">
       <div class="row-between">
         <span style="font-size:13px;">Activer les notifications</span>
-        <label class="switch">
-          <input type="checkbox" id="globalNotifToggle" checked>
-          <span class="slider"></span>
-        </label>
+        <label class="switch"><input type="checkbox" id="globalNotifToggle" checked><span class="slider"></span></label>
       </div>
     </div>
 
@@ -426,13 +413,7 @@
 
     <div class="settingsGroup">
       <h3>Photo de profil</h3>
-      <p class="modalSub" style="margin:0 0 8px;">
-        Colle un lien direct vers une image.
-        On recommande
-        <a href="https://x02.me/" target="_blank" style="color:var(--accent-2);">x02.me</a>
-        pour héberger tes photos.
-      </p>
-
+      <p class="modalSub" style="margin:0 0 8px;">Colle un lien direct vers une image. On recommande <a href="https://x02.me/" target="_blank" style="color:var(--accent-2);">x02.me</a> pour héberger tes photos.</p>
       <div class="avatarField">
         <input type="text" id="avatarUrlInput" placeholder="https://x02.me/...">
         <button class="btn-primary" style="width:auto;padding:0 16px;margin:0;" id="saveAvatarBtn">Sauver</button>
@@ -445,33 +426,27 @@
   </div>
 </div>
 
-<!-- ===================== MODAL: PANNEAU ADMIN ===================== -->
+<!-- ===================== MODAL: PANNEAU ADMIN (MODO) ===================== -->
 <div class="overlay" id="adminOverlay">
   <div class="modal">
     <button class="modal-close" id="closeAdminPanel">✕</button>
     <h2>Panneau Modo</h2>
     <p class="modalSub">Recherche un compte par courriel ou code RZA</p>
-
     <div class="addFriendRow">
       <input id="adminSearchInput" placeholder="courriel ou RZA-XXXX" style="text-transform:none;">
       <button id="adminSearchBtn">🔍</button>
     </div>
-
     <div id="adminResults"></div>
   </div>
 </div>
 
 <script>
 /* ============================================================
-   CONFIGURATION
+   CONFIGURATION — à remplir
 ============================================================ */
 const SUPABASE_URL = "https://cehdmgveddexdphynwti.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNlaGRtZ3ZlZGRleGRwaHlud3RpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4Njg5NTcsImV4cCI6MjEwMzQ0NDk1N30.qj3qIYbeUCxgcWIeE9kV_wK4Z4N004SE436xknXoz_4";
-
-const sb = supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
-);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const WALLPAPER_COUNT = 10;
 const DEFAULT_BUBBLE_COLOR = "#3a7bd5";
@@ -479,230 +454,104 @@ const DEFAULT_BUBBLE_COLOR = "#3a7bd5";
 /* ============================================================
    ÉTAT
 ============================================================ */
-let me = null;
-let friends = [];
-let conversations = [];
-let activeConvo = null;
+let me = null;          // profile row
+let friends = [];        // {id, code, email, status, requestId, incoming}
+let conversations = [];  // liste enrichie
+let activeConvo = null;  // conversation active complète
 let msgChannel = null;
 let convoChannel = null;
-let nicknames = {};
-let profilesCache = {};
+let nicknames = {};      // target_user_id -> surnom perso
+let profilesCache = {};  // user_id -> {email, code, avatar_url, is_admin}
 
 function cacheProfile(p){
   if (!p) return;
-
-  profilesCache[p.id] = {
-    email:p.email,
-    code:p.code,
-    avatar_url:p.avatar_url,
-    is_admin:p.is_admin
-  };
+  profilesCache[p.id] = {email:p.email, code:p.code, avatar_url:p.avatar_url, is_admin:p.is_admin};
 }
-
 function pfpHtml(userId, sizeClass){
   const p = profilesCache[userId];
-
-  if (p && p.avatar_url){
-    return `<div class="pfp ${sizeClass||''}">
-      <img src="${escapeHtml(p.avatar_url)}"
-           onerror="this.parentElement.textContent='👤'">
-    </div>`;
-  }
-
-  return `<div class="pfp ${sizeClass||''}">
-    ${userId===me?.id ? "🙂" : "👤"}
-  </div>`;
+  if (p && p.avatar_url) return `<div class="pfp ${sizeClass||''}"><img src="${p.avatar_url}" onerror="this.parentElement.textContent='👤'"></div>`;
+  return `<div class="pfp ${sizeClass||''}">${userId===me?.id ? "🙂" : "👤"}</div>`;
 }
-
 function modoTag(userId){
   const p = profilesCache[userId];
-  return (p && p.is_admin)
-    ? `<span class="modoTag">Modo</span>`
-    : "";
+  return (p && p.is_admin) ? `<span class="modoTag">Modo</span>` : "";
 }
-
 function nameFor(userId){
   if (nicknames[userId]) return nicknames[userId];
-
   const p = profilesCache[userId];
-
-  return p
-    ? p.email.split("@")[0]
-    : "?";
+  return p ? p.email.split("@")[0] : "?";
 }
 
 /* ============================================================
-   AUTH
+   AUTH — onglets
 ============================================================ */
-document.getElementById("tabLogin").onclick =
-  () => switchAuthTab("login");
-
-document.getElementById("tabSignup").onclick =
-  () => switchAuthTab("signup");
-
+document.getElementById("tabLogin").onclick = () => switchAuthTab("login");
+document.getElementById("tabSignup").onclick = () => switchAuthTab("signup");
 function switchAuthTab(which){
-  document.getElementById("tabLogin")
-    .classList.toggle("active", which==="login");
-
-  document.getElementById("tabSignup")
-    .classList.toggle("active", which==="signup");
-
-  document.getElementById("formLogin").style.display =
-    which==="login" ? "block" : "none";
-
-  document.getElementById("formSignup").style.display =
-    which==="signup" ? "block" : "none";
-
+  document.getElementById("tabLogin").classList.toggle("active", which==="login");
+  document.getElementById("tabSignup").classList.toggle("active", which==="signup");
+  document.getElementById("formLogin").style.display = which==="login" ? "block" : "none";
+  document.getElementById("formSignup").style.display = which==="signup" ? "block" : "none";
   document.getElementById("authError").textContent = "";
 }
 
-document.getElementById("formLogin")
-.addEventListener("submit", async (e)=>{
+document.getElementById("formLogin").addEventListener("submit", async (e)=>{
   e.preventDefault();
-
   setAuthError("");
-
-  const email =
-    document.getElementById("loginEmail").value.trim();
-
-  const password =
-    document.getElementById("loginPass").value;
-
-  const {error} =
-    await sb.auth.signInWithPassword({
-      email,
-      password
-    });
-
-  if (error)
-    return setAuthError(traduireErreur(error.message));
-
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPass").value;
+  const {error} = await sb.auth.signInWithPassword({email, password});
+  if (error) return setAuthError(traduireErreur(error.message));
   await boot();
 });
 
-document.getElementById("formSignup")
-.addEventListener("submit", async (e)=>{
+document.getElementById("formSignup").addEventListener("submit", async (e)=>{
   e.preventDefault();
-
   setAuthError("");
-
-  const email =
-    document.getElementById("signupEmail").value.trim();
-
-  const password =
-    document.getElementById("signupPass").value;
-
+  const email = document.getElementById("signupEmail").value.trim();
+  const password = document.getElementById("signupPass").value;
   document.getElementById("signupBtn").disabled = true;
   document.getElementById("loadingCode").style.display = "block";
 
-  const {error} =
-    await sb.auth.signUp({
-      email,
-      password
-    });
-
-  await new Promise(r => setTimeout(r,1600));
+  const {error} = await sb.auth.signUp({email, password});
+  // temps de chargement simulé pour la génération du code RZA
+  await new Promise(r => setTimeout(r, 1600));
 
   document.getElementById("loadingCode").style.display = "none";
   document.getElementById("signupBtn").disabled = false;
 
-  if (error)
-    return setAuthError(traduireErreur(error.message));
-
+  if (error) return setAuthError(traduireErreur(error.message));
   await boot();
 });
 
-function setAuthError(msg){
-  document.getElementById("authError").textContent = msg;
-}
-
+function setAuthError(msg){ document.getElementById("authError").textContent = msg; }
 function traduireErreur(msg){
-  if (/already registered/i.test(msg))
-    return "Ce courriel a déjà un compte.";
-
-  if (/invalid login/i.test(msg))
-    return "Courriel ou mot de passe invalide.";
-
-  if (/password/i.test(msg))
-    return "Mot de passe invalide (minimum 6 caractères).";
-
+  if (/already registered/i.test(msg)) return "Ce courriel a déjà un compte.";
+  if (/invalid login/i.test(msg)) return "Courriel ou mot de passe invalide.";
+  if (/password/i.test(msg)) return "Mot de passe invalide (minimum 6 caractères).";
   return msg;
 }
 
 /* ============================================================
-   BOOT — CORRIGÉ
+   BOOT
 ============================================================ */
 async function boot(){
+  const {data:{user}} = await sb.auth.getUser();
+  if (!user){ return; }
 
-  const {data:{user}, error:userError} =
-    await sb.auth.getUser();
-
-  if (userError || !user){
-    document.getElementById("authScreen").style.display = "flex";
-    document.getElementById("app").style.display = "none";
-    return;
+  let {data: profile} = await sb.from("profiles").select("*").eq("id", user.id).single();
+  // au cas où le trigger vient tout juste de tourner
+  let tries = 0;
+  while(!profile && tries < 5){
+    await new Promise(r=>setTimeout(r,400));
+    ({data: profile} = await sb.from("profiles").select("*").eq("id", user.id).single());
+    tries++;
   }
-
-  let profile = null;
-  let profileError = null;
-
-  /*
-   * On attend que le profil existe.
-   * Utile lorsque le trigger Supabase vient juste
-   * de créer la ligne profiles.
-   */
-  for (let tries = 0; tries < 6; tries++){
-
-    const result =
-      await sb
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-
-    profile = result.data;
-    profileError = result.error;
-
-    if (profile)
-      break;
-
-    await new Promise(r => setTimeout(r,500));
-  }
-
-  if (profileError){
-    console.error(
-      "Erreur chargement profil :",
-      profileError
-    );
-
-    setAuthError(
-      "Impossible de charger ton profil : " +
-      profileError.message
-    );
-
-    return;
-  }
-
-  if (!profile){
-
-    setAuthError(
-      "Ton profil n'existe pas encore. " +
-      "Vérifie que le déclencheur de création du profil est actif."
-    );
-
-    return;
-  }
-
   me = profile;
 
   if (me.is_blocked){
-
-    alert(
-      "Ton compte a été bloqué par un modérateur."
-    );
-
+    alert("Ton compte a été bloqué par un modérateur.");
     await sb.auth.signOut();
-
     return;
   }
 
@@ -710,68 +559,23 @@ async function boot(){
 
   document.getElementById("authScreen").style.display = "none";
   document.getElementById("app").style.display = "block";
+  document.getElementById("myEmail").textContent = me.email;
+  document.getElementById("myCode").textContent = me.code;
+  document.getElementById("globalNotifToggle").checked = me.notifications_enabled;
+  document.querySelector(`input[name=faviconMode][value="${me.favicon_mode}"]`).checked = true;
+  document.getElementById("avatarUrlInput").value = me.avatar_url || "";
+  document.getElementById("openAdminPanel").style.display = me.is_admin ? "inline-block" : "none";
 
-  document.getElementById("myEmail").textContent =
-    me.email || user.email || "";
-
-  document.getElementById("myCode").textContent =
-    me.code || "...";
-
-  document.getElementById("globalNotifToggle").checked =
-    me.notifications_enabled !== false;
-
-  const faviconRadio =
-    document.querySelector(
-      `input[name="faviconMode"][value="${me.favicon_mode || "off"}"]`
-    );
-
-  if (faviconRadio)
-    faviconRadio.checked = true;
-
-  document.getElementById("avatarUrlInput").value =
-    me.avatar_url || "";
-
-  document.getElementById("openAdminPanel").style.display =
-    me.is_admin ? "inline-block" : "none";
-
-  const {
-    data:nicksData,
-    error:nicksError
-  } =
-    await sb
-      .from("nicknames")
-      .select("*")
-      .eq("viewer_id", me.id);
-
+  const {data: nicksData} = await sb.from("nicknames").select("*").eq("viewer_id", me.id);
   nicknames = {};
-
-  if (!nicksError){
-
-    (nicksData || []).forEach(n=>{
-      nicknames[n.target_user_id] =
-        n.nickname;
-    });
-
-  } else {
-
-    console.error(
-      "Erreur chargement surnoms :",
-      nicksError
-    );
-
-  }
+  (nicksData||[]).forEach(n=> nicknames[n.target_user_id] = n.nickname);
 
   await loadFriends();
   await loadConversations();
-
   subscribeRealtime();
-
   updateFaviconTitle();
 }
 
-/* ============================================================
-   AUTH STATE
-============================================================ */
 sb.auth.onAuthStateChange((event)=>{
   if (event === "SIGNED_OUT"){
     location.reload();
@@ -781,2420 +585,725 @@ sb.auth.onAuthStateChange((event)=>{
 /* ============================================================
    AMIS
 ============================================================ */
-document.getElementById("addFriendBtn").onclick =
-async ()=>{
-
-  const code =
-    document
-      .getElementById("friendCodeInput")
-      .value
-      .trim()
-      .toUpperCase();
-
+document.getElementById("addFriendBtn").onclick = async ()=>{
+  const code = document.getElementById("friendCodeInput").value.trim().toUpperCase();
   if (!code) return;
-
-  const {error} =
-    await sb.rpc(
-      "send_friend_request",
-      {p_code:code}
-    );
-
+  const {error} = await sb.rpc("send_friend_request", {p_code: code});
   document.getElementById("friendCodeInput").value = "";
-
-  if (error)
-    alert("Erreur: " + traduireRpc(error.message));
-  else
-    await loadFriends();
+  if (error) alert("Erreur: " + traduireRpc(error.message));
+  else await loadFriends();
 };
 
 async function loadFriends(){
+  const {data} = await sb
+    .from("friends")
+    .select("id, status, requester_id, addressee_id, requester:requester_id(id,email,code,avatar_url,is_admin), addressee:addressee_id(id,email,code,avatar_url,is_admin)")
+    .or(`requester_id.eq.${me.id},addressee_id.eq.${me.id}`);
 
-  const {data,error} =
-    await sb
-      .from("friends")
-      .select(`
-        id,
-        status,
-        requester_id,
-        addressee_id,
-        requester:requester_id(
-          id,email,code,avatar_url,is_admin
-        ),
-        addressee:addressee_id(
-          id,email,code,avatar_url,is_admin
-        )
-      `)
-      .or(
-        `requester_id.eq.${me.id},addressee_id.eq.${me.id}`
-      );
-
-  if (error){
-    console.error("Erreur chargement amis :", error);
-    return;
-  }
-
-  friends =
-    (data||[]).map(f=>{
-
-      const isMeRequester =
-        f.requester_id === me.id;
-
-      const other =
-        isMeRequester
-          ? f.addressee
-          : f.requester;
-
-      cacheProfile(other);
-
-      return {
-        requestId:f.id,
-        status:f.status,
-        incoming:
-          !isMeRequester &&
-          f.status==="pending",
-        id:other.id,
-        email:other.email,
-        code:other.code
-      };
-    });
+  friends = (data||[]).map(f=>{
+    const isMeRequester = f.requester_id === me.id;
+    const other = isMeRequester ? f.addressee : f.requester;
+    cacheProfile(other);
+    return {
+      requestId: f.id,
+      status: f.status,
+      incoming: !isMeRequester && f.status === "pending",
+      id: other.id, email: other.email, code: other.code
+    };
+  });
 
   renderFriends();
 }
 
 function renderFriends(){
+  const pendingIncoming = friends.filter(f=>f.incoming);
+  const accepted = friends.filter(f=>f.status==="accepted");
 
-  const pendingIncoming =
-    friends.filter(f=>f.incoming);
-
-  const accepted =
-    friends.filter(f=>f.status==="accepted");
-
-  const pendingEl =
-    document.getElementById("pendingList");
-
+  const pendingEl = document.getElementById("pendingList");
   pendingEl.innerHTML = "";
-
   if (pendingIncoming.length){
-
-    const label =
-      document.createElement("div");
-
+    const label = document.createElement("div");
     label.className = "sectionLabel";
     label.textContent = "Invitations reçues";
-
     pendingEl.appendChild(label);
-
     pendingIncoming.forEach(f=>{
-
-      const row =
-        document.createElement("div");
-
+      const row = document.createElement("div");
       row.className = "listItem";
-
-      row.innerHTML = `
-        ${pfpHtml(f.id)}
-        <div class="li-text">
-          <div class="li-name">
-            ${escapeHtml(f.email)} ${modoTag(f.id)}
-          </div>
-          <div class="li-sub">${escapeHtml(f.code)}</div>
-        </div>
-        <button class="acceptBtn">Accepter</button>
-      `;
-
-      row.querySelector(".acceptBtn").onclick =
-      async (ev)=>{
-
+      row.innerHTML = `${pfpHtml(f.id)}
+        <div class="li-text"><div class="li-name">${escapeHtml(f.email)} ${modoTag(f.id)}</div>
+        <div class="li-sub">${f.code}</div></div>
+        <button class="acceptBtn">Accepter</button>`;
+      row.querySelector(".acceptBtn").onclick = async (ev)=>{
         ev.stopPropagation();
-
-        const {error} =
-          await sb.rpc(
-            "accept_friend_request",
-            {p_friend_row:f.requestId}
-          );
-
-        if (error)
-          alert(traduireRpc(error.message));
-        else {
-          await loadFriends();
-          await loadConversations();
-        }
+        const {error} = await sb.rpc("accept_friend_request", {p_friend_row: f.requestId});
+        if (error) alert(traduireRpc(error.message));
+        else { await loadFriends(); await loadConversations(); }
       };
-
       pendingEl.appendChild(row);
     });
   }
 
-  const listEl =
-    document.getElementById("friendsList");
-
+  const listEl = document.getElementById("friendsList");
   listEl.innerHTML = "";
-
   if (!accepted.length){
-
-    listEl.innerHTML =
-      `<div class="li-sub" style="padding:8px;">
-        Aucun ami pour l'instant. Ajoute-en avec un code RZA.
-      </div>`;
+    listEl.innerHTML = `<div class="li-sub" style="padding:8px;">Aucun ami pour l'instant. Ajoute-en avec un code RZA.</div>`;
   }
-
   accepted.forEach(f=>{
-
-    const row =
-      document.createElement("div");
-
+    const row = document.createElement("div");
     row.className = "listItem";
-
-    const displayName =
-      nicknames[f.id] || f.email;
-
-    row.innerHTML = `
-      ${pfpHtml(f.id)}
-      <div class="li-text">
-        <div class="li-name">
-          ${escapeHtml(displayName)} ${modoTag(f.id)}
-        </div>
-        <div class="li-sub">${escapeHtml(f.code)}</div>
-      </div>
-      <button class="nickBtn" data-rename>✎</button>
-    `;
-
-    row.querySelector("[data-rename]").onclick =
-    async (ev)=>{
-
+    const displayName = nicknames[f.id] || f.email;
+    row.innerHTML = `${pfpHtml(f.id)}
+      <div class="li-text"><div class="li-name">${escapeHtml(displayName)} ${modoTag(f.id)}</div>
+      <div class="li-sub">${f.code}</div></div>
+      <button class="nickBtn" data-rename>✎</button>`;
+    row.querySelector("[data-rename]").onclick = async (ev)=>{
       ev.stopPropagation();
-
-      const nv =
-        prompt(
-          "Surnom pour " +
-          f.email +
-          " (vide pour retirer) :",
-          nicknames[f.id] || ""
-        );
-
+      const nv = prompt("Surnom pour " + f.email + " (vide pour retirer) :", nicknames[f.id] || "");
       if (nv === null) return;
-
       if (nv.trim() === ""){
-
-        await sb
-          .from("nicknames")
-          .delete()
-          .eq("viewer_id",me.id)
-          .eq("target_user_id",f.id);
-
+        await sb.from("nicknames").delete().eq("viewer_id", me.id).eq("target_user_id", f.id);
         delete nicknames[f.id];
-
       } else {
-
-        await sb
-          .from("nicknames")
-          .upsert({
-            viewer_id:me.id,
-            target_user_id:f.id,
-            nickname:nv.trim()
-          });
-
-        nicknames[f.id] =
-          nv.trim();
+        await sb.from("nicknames").upsert({viewer_id: me.id, target_user_id: f.id, nickname: nv.trim()});
+        nicknames[f.id] = nv.trim();
       }
-
       renderFriends();
-
-      if (activeConvo){
-        renderConvos();
-        renderMessages(activeConvo);
-      }
+      if (activeConvo) { renderConvos(); renderMessages(activeConvo); }
     };
-
     row.onclick = async ()=>{
-
-      const conv =
-        conversations.find(
-          c =>
-            c.type==="dm" &&
-            c.memberIds.includes(f.id)
-        );
-
-      if (conv){
-
-        openConversation(conv.id);
-
-      } else {
-
-        await loadConversations();
-
-        const c2 =
-          conversations.find(
-            c =>
-              c.type==="dm" &&
-              c.memberIds.includes(f.id)
-          );
-
-        if (c2)
-          openConversation(c2.id);
-      }
+      const conv = conversations.find(c=> c.type==="dm" && c.memberIds.includes(f.id));
+      if (conv) openConversation(conv.id);
+      else { await loadConversations(); const c2 = conversations.find(c=> c.type==="dm" && c.memberIds.includes(f.id)); if(c2) openConversation(c2.id); }
     };
-
     listEl.appendChild(row);
   });
 }
 
 function traduireRpc(msg){
-
   const map = {
-
-    code_introuvable:
-      "Aucun compte avec ce code.",
-
-    auto_ajout_impossible:
-      "Tu ne peux pas t'ajouter toi-même.",
-
-    demande_introuvable:
-      "Invitation introuvable.",
-
-    non_membre:
-      "Tu n'es pas membre de cette discussion.",
-
-    non_autorise:
-      "Action réservée aux modérateurs.",
-
-    fenetre_suppression_expiree:
-      "Le délai de 5 minutes pour supprimer est dépassé.",
-
-    fenetre_modification_expiree:
-      "Le délai de 15 minutes pour modifier est dépassé.",
-
-    message_supprime:
-      "Ce message est supprimé.",
-
-    pas_proprietaire:
-      "Ce n'est pas ton message."
+    code_introuvable: "Aucun compte avec ce code.",
+    auto_ajout_impossible: "Tu ne peux pas t'ajouter toi-même.",
+    demande_introuvable: "Invitation introuvable.",
+    non_membre: "Tu n'es pas membre de cette discussion.",
+    non_autorise: "Action réservée aux modérateurs.",
+    fenetre_suppression_expiree: "Le délai de 5 minutes pour supprimer est dépassé.",
+    fenetre_modification_expiree: "Le délai de 15 minutes pour modifier est dépassé.",
+    message_supprime: "Ce message est supprimé.",
+    pas_proprietaire: "Ce n'est pas ton message."
   };
-
-  for (const k in map)
-    if (msg.includes(k))
-      return map[k];
-
+  for (const k in map) if (msg.includes(k)) return map[k];
   return msg;
 }
 
 /* ============================================================
    CONVERSATIONS
 ============================================================ */
-document.getElementById("tabFriends").onclick =
-  ()=>switchSideTab("friends");
-
-document.getElementById("tabConvos").onclick =
-  ()=>switchSideTab("convos");
-
+document.getElementById("tabFriends").onclick = ()=> switchSideTab("friends");
+document.getElementById("tabConvos").onclick = ()=> switchSideTab("convos");
 function switchSideTab(which){
-
-  document.getElementById("tabFriends")
-    .classList.toggle("active",which==="friends");
-
-  document.getElementById("tabConvos")
-    .classList.toggle("active",which==="convos");
-
-  document.getElementById("panelFriends").style.display =
-    which==="friends" ? "block" : "none";
-
-  document.getElementById("panelConvos").style.display =
-    which==="convos" ? "block" : "none";
+  document.getElementById("tabFriends").classList.toggle("active", which==="friends");
+  document.getElementById("tabConvos").classList.toggle("active", which==="convos");
+  document.getElementById("panelFriends").style.display = which==="friends" ? "block":"none";
+  document.getElementById("panelConvos").style.display = which==="convos" ? "block":"none";
 }
 
-document.getElementById("newGroupBtn").onclick =
-async ()=>{
-
-  const accepted =
-    friends.filter(f=>f.status==="accepted");
-
-  if (!accepted.length)
-    return alert(
-      "Ajoute au moins un ami avant de créer un groupe."
-    );
-
-  const name =
-    prompt("Nom du groupe :");
-
+document.getElementById("newGroupBtn").onclick = async ()=>{
+  const accepted = friends.filter(f=>f.status==="accepted");
+  if (!accepted.length) return alert("Ajoute au moins un ami avant de créer un groupe.");
+  const name = prompt("Nom du groupe :");
   if (!name) return;
-
-  const picks =
-    prompt(
-      "Codes des amis à ajouter, séparés par des virgules :\n" +
-      accepted.map(f=>f.code).join(", ")
-    );
-
+  const picks = prompt("Codes des amis à ajouter, séparés par des virgules :\n" +
+    accepted.map(f=>f.code).join(", "));
   if (!picks) return;
+  const codes = picks.split(",").map(s=>s.trim().toUpperCase()).filter(Boolean);
+  const targetIds = accepted.filter(f=>codes.includes(f.code)).map(f=>f.id);
+  if (!targetIds.length) return alert("Aucun code reconnu.");
 
-  const codes =
-    picks
-      .split(",")
-      .map(s=>s.trim().toUpperCase())
-      .filter(Boolean);
-
-  const targetIds =
-    accepted
-      .filter(f=>codes.includes(f.code))
-      .map(f=>f.id);
-
-  if (!targetIds.length)
-    return alert("Aucun code reconnu.");
-
-  const {
-    data:conv,
-    error
-  } =
-    await sb
-      .from("conversations")
-      .insert({
-        type:"group",
-        name,
-        creator_id:me.id
-      })
-      .select()
-      .single();
-
-  if (error)
-    return alert(error.message);
-
-  const rows = [
-    {
-      conversation_id:conv.id,
-      user_id:me.id,
-      role:"creator"
-    },
-    ...targetIds.map(id=>({
-      conversation_id:conv.id,
-      user_id:id,
-      role:"member"
-    }))
-  ];
-
-  const {error:membersError} =
-    await sb
-      .from("conversation_members")
-      .insert(rows);
-
-  if (membersError)
-    return alert(membersError.message);
-
+  const {data: conv, error} = await sb.from("conversations").insert({type:"group", name, creator_id: me.id}).select().single();
+  if (error) return alert(error.message);
+  const rows = [{conversation_id: conv.id, user_id: me.id, role:"creator"},
+    ...targetIds.map(id=>({conversation_id: conv.id, user_id:id, role:"member"}))];
+  await sb.from("conversation_members").insert(rows);
   await loadConversations();
   openConversation(conv.id);
 };
 
 async function loadConversations(){
+  const {data: mine} = await sb.from("conversation_members").select("conversation_id, role").eq("user_id", me.id);
+  const ids = (mine||[]).map(m=>m.conversation_id);
+  if (!ids.length){ conversations = []; renderConvos(); return; }
 
-  const {data:mine,error:mineError} =
-    await sb
-      .from("conversation_members")
-      .select("conversation_id, role")
-      .eq("user_id",me.id);
+  const {data: convs} = await sb.from("conversations").select("*").in("id", ids);
+  const {data: members} = await sb.from("conversation_members").select("conversation_id,user_id,role,profiles:user_id(id,email,code,avatar_url,is_admin)").in("conversation_id", ids);
+  const {data: settings} = await sb.from("member_settings").select("*").eq("user_id", me.id).in("conversation_id", ids);
+  const {data: reads} = await sb.from("read_state").select("*").eq("user_id", me.id).in("conversation_id", ids);
 
-  if (mineError){
-    console.error(mineError);
-    return;
-  }
+  members.forEach(m=> cacheProfile(m.profiles));
 
-  const ids =
-    (mine||[]).map(
-      m=>m.conversation_id
-    );
-
-  if (!ids.length){
-
-    conversations = [];
-    renderConvos();
-    return;
-  }
-
-  const {data:convs,error:convsError} =
-    await sb
-      .from("conversations")
-      .select("*")
-      .in("id",ids);
-
-  if (convsError){
-    console.error(convsError);
-    return;
-  }
-
-  const {
-    data:members,
-    error:membersError
-  } =
-    await sb
-      .from("conversation_members")
-      .select(`
-        conversation_id,
-        user_id,
-        role,
-        profiles:user_id(
-          id,email,code,avatar_url,is_admin
-        )
-      `)
-      .in("conversation_id",ids);
-
-  if (membersError){
-    console.error(membersError);
-    return;
-  }
-
-  const {data:settings} =
-    await sb
-      .from("member_settings")
-      .select("*")
-      .eq("user_id",me.id)
-      .in("conversation_id",ids);
-
-  const {data:reads} =
-    await sb
-      .from("read_state")
-      .select("*")
-      .eq("user_id",me.id)
-      .in("conversation_id",ids);
-
-  (members||[]).forEach(m=>{
-    cacheProfile(m.profiles);
+  conversations = convs.map(c=>{
+    const mem = members.filter(m=>m.conversation_id===c.id);
+    const myRole = mine.find(m=>m.conversation_id===c.id).role;
+    const mySettings = (settings||[]).find(s=>s.conversation_id===c.id) || {};
+    const myRead = (reads||[]).find(r=>r.conversation_id===c.id);
+    let displayName = c.name;
+    if (c.type === "dm"){
+      const other = mem.find(m=>m.user_id !== me.id);
+      displayName = other ? (nicknames[other.user_id] || other.profiles.email) : "?";
+    }
+    return {
+      ...c, members: mem, myRole, displayName,
+      memberIds: mem.map(m=>m.user_id),
+      notificationsEnabled: mySettings.notifications_enabled !== false,
+      lastReadAt: myRead ? myRead.last_read_at : c.created_at
+    };
   });
-
-  conversations =
-    (convs||[]).map(c=>{
-
-      const mem =
-        (members||[])
-          .filter(
-            m=>m.conversation_id===c.id
-          );
-
-      const mine =
-        (window.__dummy__ ? [] : null);
-
-      const myRole =
-        (arguments.length === -1)
-          ? null
-          : (
-              ((arguments) => {
-                return null;
-              })
-            );
-
-      const role =
-        ((arguments) => {
-          const found =
-            (window.__unused_roles || []);
-          return found;
-        });
-
-      const myMember =
-        (members||[]).find(
-          m =>
-            m.conversation_id===c.id &&
-            m.user_id===me.id
-        );
-
-      const mySettings =
-        (settings||[]).find(
-          s=>s.conversation_id===c.id
-        ) || {};
-
-      const myRead =
-        (reads||[]).find(
-          r=>r.conversation_id===c.id
-        );
-
-      let displayName = c.name;
-
-      if (c.type==="dm"){
-
-        const other =
-          mem.find(
-            m=>m.user_id!==me.id
-          );
-
-        displayName =
-          other
-            ? (
-                nicknames[other.user_id] ||
-                other.profiles.email
-              )
-            : "?";
-      }
-
-      return {
-        ...c,
-        members:mem,
-        myRole:myMember?.role || null,
-        displayName,
-        memberIds:
-          mem.map(m=>m.user_id),
-        notificationsEnabled:
-          mySettings.notifications_enabled !== false,
-        lastReadAt:
-          myRead
-            ? myRead.last_read_at
-            : c.created_at
-      };
-    });
 
   await refreshUnreadCounts();
   renderConvos();
 }
 
 function renderConvos(){
-
-  const el =
-    document.getElementById("convosList");
-
+  const el = document.getElementById("convosList");
   el.innerHTML = "";
-
   if (!conversations.length){
-
-    el.innerHTML =
-      `<div class="li-sub" style="padding:8px;">
-        Aucune discussion pour l'instant.
-      </div>`;
-
+    el.innerHTML = `<div class="li-sub" style="padding:8px;">Aucune discussion pour l'instant.</div>`;
     return;
   }
-
-  conversations
-    .slice()
-    .sort(
-      (a,b)=>
-        (b.lastMsgAt||"")
-        .localeCompare(a.lastMsgAt||"")
-    )
-    .forEach(c=>{
-
-      const row =
-        document.createElement("div");
-
-      row.className =
-        "listItem" +
-        (
-          activeConvo &&
-          activeConvo.id===c.id
-            ? " active"
-            : ""
-        );
-
-      row.innerHTML = `
-        <div class="pfp">
-          ${c.type==="group" ? "👥" : "👤"}
-        </div>
-
-        <div class="li-text">
-          <div class="li-name">
-            ${escapeHtml(c.displayName)}
-          </div>
-
-          <div class="li-sub">
-            ${
-              c.type==="group"
-                ? c.members.length+" membres"
-                : "Message privé"
-            }
-          </div>
-        </div>
-
-        ${
-          c.unread
-            ? `<span class="badge">${c.unread}</span>`
-            : ""
-        }
-      `;
-
-      row.onclick =
-        ()=>openConversation(c.id);
-
-      el.appendChild(row);
-    });
+  conversations.slice().sort((a,b)=> (b.lastMsgAt||"").localeCompare(a.lastMsgAt||"")).forEach(c=>{
+    const row = document.createElement("div");
+    row.className = "listItem" + (activeConvo && activeConvo.id===c.id ? " active" : "");
+    row.innerHTML = `<div class="pfp">${c.type==="group" ? "👥" : "👤"}</div>
+      <div class="li-text"><div class="li-name">${escapeHtml(c.displayName)}</div>
+      <div class="li-sub">${c.type==="group" ? c.members.length+" membres" : "Message privé"}</div></div>
+      ${c.unread ? `<span class="badge">${c.unread}</span>` : ""}`;
+    row.onclick = ()=> openConversation(c.id);
+    el.appendChild(row);
+  });
 }
 
 async function refreshUnreadCounts(){
-
   for (const c of conversations){
-
-    if (!c.notificationsEnabled){
-      c.unread = 0;
-      continue;
-    }
-
-    const {count} =
-      await sb
-        .from("messages")
-        .select("id",{count:"exact",head:true})
-        .eq("conversation_id",c.id)
-        .eq("deleted",false)
-        .neq("sender_id",me.id)
-        .gt("created_at",c.lastReadAt);
-
+    if (!c.notificationsEnabled){ c.unread = 0; continue; }
+    const {count} = await sb.from("messages").select("id",{count:"exact",head:true})
+      .eq("conversation_id", c.id).eq("deleted", false).neq("sender_id", me.id)
+      .gt("created_at", c.lastReadAt);
     c.unread = count || 0;
   }
-
   updateFaviconTitle();
 }
 
 /* ============================================================
-   OUVERTURE DISCUSSION
+   OUVERTURE D'UNE DISCUSSION
 ============================================================ */
 async function openConversation(convoId){
-
   switchSideTab("convos");
-
-  const conv =
-    conversations.find(
-      c=>c.id===convoId
-    );
-
+  const conv = conversations.find(c=>c.id===convoId);
   if (!conv) return;
-
   activeConvo = conv;
 
-  document.getElementById("noConvo").style.display =
-    "none";
-
-  const wrap =
-    document.getElementById("convoWrap");
-
+  document.getElementById("noConvo").style.display = "none";
+  const wrap = document.getElementById("convoWrap");
   wrap.style.display = "flex";
 
-  const chatPfpEl =
-    document.getElementById("chatPfp");
-
-  if (conv.type==="group"){
-
-    chatPfpEl.innerHTML = "👥";
-
-  } else {
-
-    const other =
-      conv.members.find(
-        m=>m.user_id!==me.id
-      );
-
-    const p =
-      other &&
-      profilesCache[other.user_id];
-
-    chatPfpEl.innerHTML =
-      (p && p.avatar_url)
-        ? `<img src="${escapeHtml(p.avatar_url)}"
-             onerror="this.remove()">`
-        : "👤";
+  const chatPfpEl = document.getElementById("chatPfp");
+  if (conv.type === "group"){ chatPfpEl.innerHTML = "👥"; }
+  else {
+    const other = conv.members.find(m=>m.user_id!==me.id);
+    const p = other && profilesCache[other.user_id];
+    chatPfpEl.innerHTML = (p && p.avatar_url) ? `<img src="${p.avatar_url}" onerror="this.remove()">` : "👤";
   }
-
-  document.getElementById("chatName").innerHTML =
-    escapeHtml(conv.displayName) +
-    (
-      conv.type==="dm"
-        ? modoTag(
-            conv.members.find(
-              m=>m.user_id!==me.id
-            )?.user_id
-          )
-        : ""
-    );
-
-  document.getElementById("chatSub").textContent =
-    conv.type==="group"
-      ? conv.members.length+" membres"
-      : "Message privé";
+  document.getElementById("chatName").innerHTML = escapeHtml(conv.displayName) +
+    (conv.type==="dm" ? modoTag(conv.members.find(m=>m.user_id!==me.id)?.user_id) : "");
+  document.getElementById("chatSub").textContent = conv.type==="group" ? conv.members.length+" membres" : "Message privé";
 
   await loadBubbleColors(conv);
   await applyWallpaper(conv);
   await loadMessages(conv);
   await loadReadState(conv);
-
   renderConvos();
 
-  const readAt =
-    new Date().toISOString();
-
-  await sb
-    .from("read_state")
-    .upsert({
-      conversation_id:conv.id,
-      user_id:me.id,
-      last_read_at:readAt
-    });
-
-  conv.unread = 0;
-  conv.lastReadAt = readAt;
-
-  renderConvos();
-  updateFaviconTitle();
+  await sb.from("read_state").upsert({
+    conversation_id: conv.id, user_id: me.id, last_read_at: new Date().toISOString()
+  });
+  conv.unread = 0; conv.lastReadAt = new Date().toISOString();
+  renderConvos(); updateFaviconTitle();
 
   listenToConvoMessages(conv.id);
 }
 
 async function loadReadState(conv){
-
-  const {data} =
-    await sb
-      .from("read_state")
-      .select("*")
-      .eq("conversation_id",conv.id);
-
+  const {data} = await sb.from("read_state").select("*").eq("conversation_id", conv.id);
   conv.readState = {};
-
-  (data||[]).forEach(r=>{
-    conv.readState[r.user_id] =
-      r.last_read_at;
-  });
+  (data||[]).forEach(r=> conv.readState[r.user_id] = r.last_read_at);
 }
 
 async function loadBubbleColors(conv){
-
-  const {data} =
-    await sb
-      .from("member_bubble_colors")
-      .select("*")
-      .eq("conversation_id",conv.id)
-      .eq("viewer_id",me.id);
-
+  const {data} = await sb.from("member_bubble_colors").select("*")
+    .eq("conversation_id", conv.id).eq("viewer_id", me.id);
   conv.bubbleColors = {};
-
-  conv.members.forEach(m=>{
-    conv.bubbleColors[m.user_id] =
-      DEFAULT_BUBBLE_COLOR;
-  });
-
-  (data||[]).forEach(row=>{
-    conv.bubbleColors[row.target_user_id] =
-      row.color;
-  });
+  conv.members.forEach(m=> conv.bubbleColors[m.user_id] = DEFAULT_BUBBLE_COLOR);
+  (data||[]).forEach(row=> conv.bubbleColors[row.target_user_id] = row.color);
 }
 
 async function applyWallpaper(conv){
-
-  const {data:settings} =
-    await sb
-      .from("member_settings")
-      .select("wallpaper_private")
-      .eq("conversation_id",conv.id)
-      .eq("user_id",me.id)
-      .maybeSingle();
-
-  const idx =
-    (settings && settings.wallpaper_private) ||
-    conv.wallpaper_public;
-
-  const msgsEl =
-    document.getElementById("messagesEl");
-
-  msgsEl.style.backgroundImage =
-    idx
-      ? `url(assets/img/wallpaper/wallpaper${idx}.png)`
-      : "none";
+  const {data: settings} = await sb.from("member_settings").select("wallpaper_private")
+    .eq("conversation_id", conv.id).eq("user_id", me.id).maybeSingle();
+  const idx = (settings && settings.wallpaper_private) || conv.wallpaper_public;
+  const msgsEl = document.getElementById("messagesEl");
+  msgsEl.style.backgroundImage = idx ? `url(assets/img/wallpaper/wallpaper${idx}.png)` : "none";
 }
 
 async function loadMessages(conv){
-
-  const {data,error} =
-    await sb
-      .from("messages")
-      .select("*")
-      .eq("conversation_id",conv.id)
-      .order("created_at");
-
-  if (error){
-    console.error(error);
-    return;
-  }
-
+  const {data} = await sb.from("messages").select("*").eq("conversation_id", conv.id).order("created_at");
   conv.messages = data || [];
-
   renderMessages(conv);
 }
 
 function renderMessages(conv){
-
-  const el =
-    document.getElementById("messagesEl");
-
-  el.querySelectorAll(".msgRow")
-    .forEach(n=>n.remove());
-
+  const el = document.getElementById("messagesEl");
+  el.querySelectorAll(".msgRow").forEach(n=>n.remove());
   if (!conv.messages.length){
-
     if (!el.querySelector(".emptyState")){
-
-      const e =
-        document.createElement("div");
-
+      const e = document.createElement("div");
       e.className = "emptyState";
-      e.textContent =
-        "Aucun message. Dis bonjour!";
-
+      e.textContent = "Aucun message. Dis bonjour!";
       el.appendChild(e);
     }
-
   } else {
-
     el.querySelector(".emptyState")?.remove();
   }
-
-  const lastMineId =
-    [...conv.messages]
-      .reverse()
-      .find(
-        m=>m.sender_id===me.id
-      )?.id;
-
-  conv.messages.forEach(m=>{
-    el.appendChild(
-      renderMessageRow(
-        conv,
-        m,
-        m.id===lastMineId
-      )
-    );
-  });
-
-  el.scrollTop =
-    el.scrollHeight;
+  const lastMineId = [...conv.messages].reverse().find(m=>m.sender_id===me.id)?.id;
+  conv.messages.forEach(m=> el.appendChild(renderMessageRow(conv, m, m.id===lastMineId)));
+  el.scrollTop = el.scrollHeight;
 }
 
-function readReceiptText(conv,msg){
-
-  const others =
-    conv.members.filter(
-      m=>m.user_id!==me.id
-    );
-
-  if (!others.length || !conv.readState)
-    return "";
-
-  const readers =
-    others.filter(
-      o =>
-        conv.readState[o.user_id] &&
-        conv.readState[o.user_id] >= msg.created_at
-    );
-
-  if (!readers.length)
-    return "";
-
-  if (conv.type==="dm")
-    return "Vu";
-
+function readReceiptText(conv, msg){
+  const others = conv.members.filter(m=>m.user_id!==me.id);
+  if (!others.length || !conv.readState) return "";
+  const readers = others.filter(o=> conv.readState[o.user_id] && conv.readState[o.user_id] >= msg.created_at);
+  if (!readers.length) return "";
+  if (conv.type === "dm") return "Vu";
   return `Vu par ${readers.length}/${others.length}`;
 }
 
-function renderMessageRow(conv,m,isLastMine){
+function renderMessageRow(conv, m, isLastMine){
+  const mine = m.sender_id === me.id;
+  const row = document.createElement("div");
+  row.className = "msgRow " + (mine ? "mine" : "theirs");
+  const senderName = mine ? "Toi" : nameFor(m.sender_id);
+  const color = conv.bubbleColors[m.sender_id] || DEFAULT_BUBBLE_COLOR;
 
-  const mine =
-    m.sender_id===me.id;
+  const now = Date.now();
+  const created = new Date(m.created_at).getTime();
+  const canDelete = mine && !m.deleted && (now - created) < 5*60*1000;
+  const canEdit = mine && !m.deleted && (now - created) < 15*60*1000;
 
-  const row =
-    document.createElement("div");
-
-  row.className =
-    "msgRow " +
-    (mine ? "mine" : "theirs");
-
-  const senderName =
-    mine
-      ? "Toi"
-      : nameFor(m.sender_id);
-
-  const color =
-    conv.bubbleColors[m.sender_id] ||
-    DEFAULT_BUBBLE_COLOR;
-
-  const now =
-    Date.now();
-
-  const created =
-    new Date(m.created_at).getTime();
-
-  const canDelete =
-    mine &&
-    !m.deleted &&
-    (now-created)<5*60*1000;
-
-  const canEdit =
-    mine &&
-    !m.deleted &&
-    (now-created)<15*60*1000;
-
-  const receipt =
-    (mine && isLastMine)
-      ? readReceiptText(conv,m)
-      : "";
+  const receipt = (mine && isLastMine) ? readReceiptText(conv, m) : "";
 
   row.innerHTML = `
-    ${
-      conv.type==="group"
-        ? `<div class="msgSender">
-             ${escapeHtml(senderName)}
-             ${!mine ? modoTag(m.sender_id) : ""}
-           </div>`
-        : ""
-    }
-
-    <div class="bubble"
-      style="
-        background:${m.deleted ? "#2a2f3d" : color};
-        color:${m.deleted ? "#7a8196" : "#fff"};
-      ">
-
-      ${
-        m.deleted
-          ? "<i>Message supprimé</i>"
-          : escapeHtml(m.content)
-      }
-
+    ${conv.type==="group" ? `<div class="msgSender">${escapeHtml(senderName)}${!mine ? modoTag(m.sender_id) : ""}</div>` : ""}
+    <div class="bubble" style="background:${m.deleted ? "#2a2f3d" : color}; color:${m.deleted ? "#7a8196" : "#fff"};">
+      ${m.deleted ? "<i>Message supprimé</i>" : escapeHtml(m.content)}
     </div>
-
     <div class="msgMeta">
-
-      <span>
-        ${
-          new Date(
-            m.created_at
-          ).toLocaleTimeString(
-            [],
-            {
-              hour:"2-digit",
-              minute:"2-digit"
-            }
-          )
-        }
-
-        ${
-          m.edited_at
-            ? " · modifié"
-            : ""
-        }
-      </span>
-
-      ${
-        canEdit
-          ? `<button data-act="edit">modifier</button>`
-          : ""
-      }
-
-      ${
-        canDelete
-          ? `<button data-act="del">supprimer</button>`
-          : ""
-      }
-
+      <span>${new Date(m.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}${m.edited_at ? " · modifié" : ""}</span>
+      ${canEdit ? `<button data-act="edit">modifier</button>` : ""}
+      ${canDelete ? `<button data-act="del">supprimer</button>` : ""}
     </div>
+    ${receipt ? `<div class="readReceipt">${receipt}</div>` : ""}`;
 
-    ${
-      receipt
-        ? `<div class="readReceipt">${receipt}</div>`
-        : ""
-    }
-  `;
-
-  if (canEdit){
-
-    row.querySelector(
-      '[data-act="edit"]'
-    ).onclick =
-    async ()=>{
-
-      const nv =
-        prompt(
-          "Modifier le message :",
-          m.content
-        );
-
-      if (
-        nv == null ||
-        nv.trim()===""
-      )
-        return;
-
-      const {error} =
-        await sb
-          .from("messages")
-          .update({
-            content:nv.trim()
-          })
-          .eq("id",m.id);
-
-      if (error)
-        alert(traduireRpc(error.message));
-    };
-  }
-
-  if (canDelete){
-
-    row.querySelector(
-      '[data-act="del"]'
-    ).onclick =
-    async ()=>{
-
-      if (!confirm(
-        "Supprimer ce message ?"
-      ))
-        return;
-
-      const {error} =
-        await sb
-          .from("messages")
-          .update({
-            deleted:true
-          })
-          .eq("id",m.id);
-
-      if (error)
-        alert(traduireRpc(error.message));
-    };
-  }
+  if (canEdit) row.querySelector('[data-act="edit"]').onclick = async ()=>{
+    const nv = prompt("Modifier le message :", m.content);
+    if (nv == null || nv.trim()==="") return;
+    const {error} = await sb.from("messages").update({content: nv.trim()}).eq("id", m.id);
+    if (error) alert(traduireRpc(error.message));
+  };
+  if (canDelete) row.querySelector('[data-act="del"]').onclick = async ()=>{
+    if (!confirm("Supprimer ce message ?")) return;
+    const {error} = await sb.from("messages").update({deleted:true}).eq("id", m.id);
+    if (error) alert(traduireRpc(error.message));
+  };
 
   return row;
 }
 
-/* ============================================================
-   MESSAGES
-============================================================ */
-document.getElementById("sendBtn").onclick =
-  sendMessage;
-
-document.getElementById("msgInput")
-.addEventListener("keydown",e=>{
-  if (e.key==="Enter")
-    sendMessage();
-});
-
+document.getElementById("sendBtn").onclick = sendMessage;
+document.getElementById("msgInput").addEventListener("keydown", e=>{ if(e.key==="Enter") sendMessage(); });
 async function sendMessage(){
-
-  if (!activeConvo)
-    return;
-
-  const input =
-    document.getElementById("msgInput");
-
-  const content =
-    input.value.trim();
-
-  if (!content)
-    return;
-
+  if (!activeConvo) return;
+  const input = document.getElementById("msgInput");
+  const content = input.value.trim();
+  if (!content) return;
   input.value = "";
-
-  const {error} =
-    await sb
-      .from("messages")
-      .insert({
-        conversation_id:activeConvo.id,
-        sender_id:me.id,
-        content
-      });
-
-  if (error)
-    alert(error.message);
+  const {error} = await sb.from("messages").insert({
+    conversation_id: activeConvo.id, sender_id: me.id, content
+  });
+  if (error) alert(error.message);
 }
 
-/* ============================================================
-   REALTIME DISCUSSION
-============================================================ */
 function listenToConvoMessages(convoId){
-
-  if (msgChannel)
-    sb.removeChannel(msgChannel);
-
-  msgChannel =
-    sb
-      .channel("msgs-"+convoId)
-
-      .on(
-        "postgres_changes",
-        {
-          event:"*",
-          schema:"public",
-          table:"messages",
-          filter:
-            `conversation_id=eq.${convoId}`
-        },
-        payload=>{
-
-          if (
-            !activeConvo ||
-            activeConvo.id!==convoId
-          )
-            return;
-
-          const idx =
-            activeConvo.messages.findIndex(
-              m =>
-                m.id===payload.new?.id ||
-                m.id===payload.old?.id
-            );
-
-          if (
-            payload.eventType==="INSERT"
-          ){
-
-            activeConvo.messages.push(
-              payload.new
-            );
-
-          } else if (
-            payload.eventType==="UPDATE" &&
-            idx>-1
-          ){
-
-            activeConvo.messages[idx] =
-              payload.new;
-          }
-
-          renderMessages(activeConvo);
-        }
-      )
-
-      .on(
-        "postgres_changes",
-        {
-          event:"*",
-          schema:"public",
-          table:"read_state",
-          filter:
-            `conversation_id=eq.${convoId}`
-        },
-        payload=>{
-
-          if (
-            !activeConvo ||
-            activeConvo.id!==convoId
-          )
-            return;
-
-          if (
-            payload.new &&
-            payload.new.user_id!==me.id
-          ){
-
-            activeConvo.readState =
-              activeConvo.readState || {};
-
-            activeConvo.readState[
-              payload.new.user_id
-            ] =
-              payload.new.last_read_at;
-
-            renderMessages(activeConvo);
-          }
-        }
-      )
-
-      .subscribe();
+  if (msgChannel) sb.removeChannel(msgChannel);
+  msgChannel = sb.channel("msgs-"+convoId)
+    .on("postgres_changes", {event:"*", schema:"public", table:"messages", filter:`conversation_id=eq.${convoId}`}, payload=>{
+      if (!activeConvo || activeConvo.id !== convoId) return;
+      const idx = activeConvo.messages.findIndex(m=>m.id===payload.new?.id || m.id===payload.old?.id);
+      if (payload.eventType === "INSERT") activeConvo.messages.push(payload.new);
+      else if (payload.eventType === "UPDATE" && idx>-1) activeConvo.messages[idx] = payload.new;
+      renderMessages(activeConvo);
+    })
+    .on("postgres_changes", {event:"*", schema:"public", table:"read_state", filter:`conversation_id=eq.${convoId}`}, payload=>{
+      if (!activeConvo || activeConvo.id !== convoId) return;
+      if (payload.new && payload.new.user_id !== me.id){
+        activeConvo.readState = activeConvo.readState || {};
+        activeConvo.readState[payload.new.user_id] = payload.new.last_read_at;
+        renderMessages(activeConvo);
+      }
+    }).subscribe();
 }
 
-/* ============================================================
-   REALTIME GLOBAL
-============================================================ */
+/* Realtime global: badges de non-lus + favicon sur toutes les conversations */
 function subscribeRealtime(){
-
-  if (convoChannel)
-    sb.removeChannel(convoChannel);
-
-  convoChannel =
-    sb
-      .channel("global-msgs")
-
-      .on(
-        "postgres_changes",
-        {
-          event:"INSERT",
-          schema:"public",
-          table:"messages"
-        },
-        async payload=>{
-
-          const conv =
-            conversations.find(
-              c =>
-                c.id===
-                payload.new.conversation_id
-            );
-
-          if (
-            !conv ||
-            payload.new.sender_id===me.id
-          )
-            return;
-
-          if (
-            activeConvo &&
-            activeConvo.id===conv.id
-          )
-            return;
-
-          if (!conv.notificationsEnabled)
-            return;
-
-          conv.unread =
-            (conv.unread||0)+1;
-
-          renderConvos();
-          updateFaviconTitle();
-        }
-      )
-
-      .on(
-        "postgres_changes",
-        {
-          event:"*",
-          schema:"public",
-          table:"friends"
-        },
-        ()=>loadFriends()
-      )
-
-      .subscribe();
+  if (convoChannel) sb.removeChannel(convoChannel);
+  convoChannel = sb.channel("global-msgs")
+    .on("postgres_changes", {event:"INSERT", schema:"public", table:"messages"}, async payload=>{
+      const conv = conversations.find(c=>c.id === payload.new.conversation_id);
+      if (!conv || payload.new.sender_id === me.id) return;
+      if (activeConvo && activeConvo.id === conv.id) return; // vue active = lu
+      if (!conv.notificationsEnabled) return;
+      conv.unread = (conv.unread||0) + 1;
+      renderConvos();
+      updateFaviconTitle();
+    })
+    .on("postgres_changes", {event:"*", schema:"public", table:"friends"}, ()=> loadFriends())
+    .subscribe();
 }
 
 /* ============================================================
    FAVICON / TITRE
 ============================================================ */
 function totalUnread(){
-
-  return conversations.reduce(
-    (s,c)=>
-      s+(c.unread||0),
-    0
-  );
+  return conversations.reduce((s,c)=> s + (c.unread||0), 0);
 }
-
 function updateFaviconTitle(){
+  const n = totalUnread();
+  const titleEl = document.getElementById("pageTitle");
+  const faviconEl = document.getElementById("favicon");
 
-  const n =
-    totalUnread();
-
-  const titleEl =
-    document.getElementById("pageTitle");
-
-  const faviconEl =
-    document.getElementById("favicon");
-
-  if (
-    !me ||
-    !me.notifications_enabled ||
-    n===0
-  ){
-
-    titleEl.textContent =
-      "Pluriportail";
-
-    faviconEl.href =
-      "assets/base.png";
-
+  if (!me || !me.notifications_enabled || n===0){
+    titleEl.textContent = "Pluriportail";
+    faviconEl.href = "assets/base.png";
     return;
   }
 
-  if (me.favicon_mode==="double-l"){
-
-    titleEl.textContent =
-      "Pluriportai" +
-      "l".repeat(
-        Math.max(1,n)
-      );
-
-    faviconEl.href =
-      "assets/base.png";
-
-  } else if (
-    me.favicon_mode==="image-l"
-  ){
-
-    titleEl.textContent =
-      "Pluriportail";
-
-    faviconEl.href =
-      "assets/base-l.png";
-
+  if (me.favicon_mode === "double-l"){
+    titleEl.textContent = "Pluriportai" + "l".repeat(Math.max(1,n));
+    faviconEl.href = "assets/base.png";
+  } else if (me.favicon_mode === "image-l"){
+    titleEl.textContent = "Pluriportail";
+    faviconEl.href = "assets/base-l.png";
   } else {
-
-    titleEl.textContent =
-      "Pluriportail";
-
-    faviconEl.href =
-      "assets/base.png";
+    titleEl.textContent = "Pluriportail";
+    faviconEl.href = "assets/base.png";
   }
 }
 
 /* ============================================================
-   PARAMÈTRES COMPTE
+   PARAMÈTRES DU COMPTE
 ============================================================ */
-document.getElementById(
-  "openAccountSettings"
-).onclick =
-  ()=>document
-    .getElementById("accountSettingsOverlay")
-    .classList.add("show");
+document.getElementById("openAccountSettings").onclick = ()=> document.getElementById("accountSettingsOverlay").classList.add("show");
+document.getElementById("closeAccountSettings").onclick = ()=> document.getElementById("accountSettingsOverlay").classList.remove("show");
 
-document.getElementById(
-  "closeAccountSettings"
-).onclick =
-  ()=>document
-    .getElementById("accountSettingsOverlay")
-    .classList.remove("show");
-
-document.getElementById(
-  "globalNotifToggle"
-).onchange =
-async e=>{
-
-  me.notifications_enabled =
-    e.target.checked;
-
-  const {error} =
-    await sb
-      .from("profiles")
-      .update({
-        notifications_enabled:
-          me.notifications_enabled
-      })
-      .eq("id",me.id);
-
-  if (error)
-    alert(error.message);
-
+document.getElementById("globalNotifToggle").onchange = async (e)=>{
+  me.notifications_enabled = e.target.checked;
+  await sb.from("profiles").update({notifications_enabled: me.notifications_enabled}).eq("id", me.id);
   updateFaviconTitle();
 };
-
-document.querySelectorAll(
-  'input[name="faviconMode"]'
-).forEach(r=>{
-
-  r.onchange =
-  async ()=>{
-
-    me.favicon_mode =
-      r.value;
-
-    const {error} =
-      await sb
-        .from("profiles")
-        .update({
-          favicon_mode:
-            me.favicon_mode
-        })
-        .eq("id",me.id);
-
-    if (error)
-      alert(error.message);
-
+document.querySelectorAll('input[name=faviconMode]').forEach(r=>{
+  r.onchange = async ()=>{
+    me.favicon_mode = r.value;
+    await sb.from("profiles").update({favicon_mode: me.favicon_mode}).eq("id", me.id);
     updateFaviconTitle();
   };
 });
+document.getElementById("logoutBtn").onclick = async ()=>{ await sb.auth.signOut(); };
 
-document.getElementById(
-  "logoutBtn"
-).onclick =
-async ()=>{
-  await sb.auth.signOut();
-};
-
-document.getElementById(
-  "saveAvatarBtn"
-).onclick =
-async ()=>{
-
-  const url =
-    document
-      .getElementById("avatarUrlInput")
-      .value
-      .trim();
-
-  me.avatar_url =
-    url || null;
-
-  const {error} =
-    await sb
-      .from("profiles")
-      .update({
-        avatar_url:me.avatar_url
-      })
-      .eq("id",me.id);
-
-  if (error)
-    return alert(error.message);
-
+document.getElementById("saveAvatarBtn").onclick = async ()=>{
+  const url = document.getElementById("avatarUrlInput").value.trim();
+  me.avatar_url = url || null;
+  await sb.from("profiles").update({avatar_url: me.avatar_url}).eq("id", me.id);
   cacheProfile(me);
-
   alert("Photo mise à jour.");
-
   renderFriends();
-
-  if (activeConvo)
-    renderMessages(activeConvo);
+  if (activeConvo) renderMessages(activeConvo);
 };
 
 /* ============================================================
-   ADMIN
+   PANNEAU ADMIN (MODO)
 ============================================================ */
-document.getElementById(
-  "openAdminPanel"
-).onclick =
-  ()=>document
-    .getElementById("adminOverlay")
-    .classList.add("show");
+document.getElementById("openAdminPanel").onclick = ()=> document.getElementById("adminOverlay").classList.add("show");
+document.getElementById("closeAdminPanel").onclick = ()=> document.getElementById("adminOverlay").classList.remove("show");
 
-document.getElementById(
-  "closeAdminPanel"
-).onclick =
-  ()=>document
-    .getElementById("adminOverlay")
-    .classList.remove("show");
-
-document.getElementById(
-  "adminSearchBtn"
-).onclick =
-  adminSearch;
-
-document.getElementById(
-  "adminSearchInput"
-).addEventListener(
-  "keydown",
-  e=>{
-    if (e.key==="Enter")
-      adminSearch();
-  }
-);
+document.getElementById("adminSearchBtn").onclick = adminSearch;
+document.getElementById("adminSearchInput").addEventListener("keydown", e=>{ if(e.key==="Enter") adminSearch(); });
 
 async function adminSearch(){
-
-  const q =
-    document
-      .getElementById("adminSearchInput")
-      .value
-      .trim();
-
-  const el =
-    document.getElementById("adminResults");
-
-  if (!q){
-    el.innerHTML="";
-    return;
-  }
-
-  const {data,error} =
-    await sb
-      .from("profiles")
-      .select("*")
-      .or(
-        `email.ilike.%${q}%,code.ilike.%${q}%`
-      )
-      .neq("id",me.id)
-      .limit(20);
-
-  if (error){
-
-    el.innerHTML =
-      `<div class="li-sub">
-        ${escapeHtml(error.message)}
-      </div>`;
-
-    return;
-  }
-
-  el.innerHTML="";
-
-  if (!data.length){
-
-    el.innerHTML =
-      `<div class="li-sub">
-        Aucun résultat.
-      </div>`;
-
-    return;
-  }
-
+  const q = document.getElementById("adminSearchInput").value.trim();
+  const el = document.getElementById("adminResults");
+  if (!q){ el.innerHTML = ""; return; }
+  const {data, error} = await sb.from("profiles").select("*")
+    .or(`email.ilike.%${q}%,code.ilike.%${q}%`)
+    .neq("id", me.id).limit(20);
+  if (error){ el.innerHTML = `<div class="li-sub">${error.message}</div>`; return; }
+  el.innerHTML = "";
+  if (!data.length){ el.innerHTML = `<div class="li-sub">Aucun résultat.</div>`; return; }
   data.forEach(p=>{
-
     cacheProfile(p);
-
-    const row =
-      document.createElement("div");
-
-    row.className =
-      "adminRow";
-
-    row.innerHTML = `
-      ${pfpHtml(p.id)}
-
-      <span style="flex:1;">
-        ${escapeHtml(p.email)}
-        <span class="li-sub">
-          (${escapeHtml(p.code)})
-        </span>
-
-        ${modoTag(p.id)}
-
-        ${
-          p.is_blocked
-            ? `<span class="modoTag"
-                     style="background:var(--accent);">
-                 Bloqué
-               </span>`
-            : ""
-        }
-      </span>
-
-      <button data-a="add"
-        style="background:var(--accent-2);color:#08131f;">
-        + Ami
-      </button>
-
-      <button data-a="block"
-        style="
-          background:${
-            p.is_blocked
-              ? "var(--ok)"
-              : "var(--warn)"
-          };
-          color:#241c04;
-        ">
-        ${
-          p.is_blocked
-            ? "Débloquer"
-            : "Bloquer"
-        }
-      </button>
-
-      <button data-a="del"
-        style="background:var(--accent);color:#fff;">
-        Supprimer
-      </button>
-    `;
-
-    row.querySelector(
-      '[data-a="add"]'
-    ).onclick =
-    async ()=>{
-
-      const {error} =
-        await sb.rpc(
-          "admin_add_friend",
-          {p_target:p.id}
-        );
-
-      if (error)
-        return alert(
-          traduireRpc(error.message)
-        );
-
-      await loadFriends();
-      await loadConversations();
-
+    const row = document.createElement("div");
+    row.className = "adminRow";
+    row.innerHTML = `${pfpHtml(p.id)}
+      <span style="flex:1;">${escapeHtml(p.email)} <span class="li-sub">(${p.code})</span> ${modoTag(p.id)} ${p.is_blocked ? '<span class="modoTag" style="background:var(--accent);">Bloqué</span>' : ''}</span>
+      <button data-a="add" style="background:var(--accent-2);color:#08131f;">+ Ami</button>
+      <button data-a="block" style="background:${p.is_blocked ? 'var(--ok)':'var(--warn)'};color:#241c04;">${p.is_blocked ? 'Débloquer' : 'Bloquer'}</button>
+      <button data-a="del" style="background:var(--accent);color:#fff;">Supprimer</button>`;
+    row.querySelector('[data-a="add"]').onclick = async ()=>{
+      const {error} = await sb.rpc("admin_add_friend", {p_target: p.id});
+      if (error) return alert(traduireRpc(error.message));
+      await loadFriends(); await loadConversations();
       alert("Ajouté comme ami.");
     };
-
-    row.querySelector(
-      '[data-a="block"]'
-    ).onclick =
-    async ()=>{
-
-      const {error} =
-        await sb.rpc(
-          "admin_set_blocked",
-          {
-            p_target:p.id,
-            p_blocked:!p.is_blocked
-          }
-        );
-
-      if (error)
-        return alert(
-          traduireRpc(error.message)
-        );
-
+    row.querySelector('[data-a="block"]').onclick = async ()=>{
+      const {error} = await sb.rpc("admin_set_blocked", {p_target: p.id, p_blocked: !p.is_blocked});
+      if (error) return alert(traduireRpc(error.message));
       adminSearch();
     };
-
-    row.querySelector(
-      '[data-a="del"]'
-    ).onclick =
-    async ()=>{
-
-      if (
-        !confirm(
-          `Supprimer définitivement le compte de ${p.email} ?`
-        )
-      )
-        return;
-
-      const {error} =
-        await sb.rpc(
-          "admin_delete_account",
-          {p_target:p.id}
-        );
-
-      if (error)
-        return alert(
-          traduireRpc(error.message)
-        );
-
+    row.querySelector('[data-a="del"]').onclick = async ()=>{
+      if (!confirm(`Supprimer définitivement le compte de ${p.email} ?`)) return;
+      const {error} = await sb.rpc("admin_delete_account", {p_target: p.id});
+      if (error) return alert(traduireRpc(error.message));
       adminSearch();
     };
-
     el.appendChild(row);
   });
 }
 
 /* ============================================================
-   PARAMÈTRES DISCUSSION
+   PARAMÈTRES DE DISCUSSION (engrenage)
 ============================================================ */
 let wallMode = "public";
 
-document.getElementById(
-  "openChatSettings"
-).onclick =
-  ()=>openChatSettingsModal();
-
-document.getElementById(
-  "closeChatSettings"
-).onclick =
-  ()=>document
-    .getElementById("chatSettingsOverlay")
-    .classList.remove("show");
+document.getElementById("openChatSettings").onclick = ()=> openChatSettingsModal();
+document.getElementById("closeChatSettings").onclick = ()=> document.getElementById("chatSettingsOverlay").classList.remove("show");
 
 async function openChatSettingsModal(){
+  if (!activeConvo) return;
+  const conv = activeConvo;
+  wallMode = "public";
 
-  if (!activeConvo)
-    return;
-
-  const conv =
-    activeConvo;
-
-  wallMode =
-    "public";
-
-  document.getElementById(
-    "wallModePrivate"
-  ).disabled =
-    conv.type==="dm";
-
-  document.getElementById(
-    "wallModePrivate"
-  ).title =
-    conv.type==="dm"
-      ? "Indisponible pour les messages privés"
-      : "";
+  document.getElementById("wallModePrivate").disabled = (conv.type === "dm");
+  document.getElementById("wallModePrivate").title = conv.type==="dm" ? "Indisponible pour les messages privés" : "";
 
   renderPreview(conv);
-
   renderColorRows(conv);
-
   await renderWallGrid(conv);
 
-  const canModerate =
-    conv.type==="group" &&
-    (
-      conv.myRole==="creator" ||
-      conv.myRole==="moderator"
-    );
+  document.getElementById("modGroup").style.display = (conv.type==="group" && (conv.myRole==="creator"||conv.myRole==="moderator")) ? "block" : "none";
+  if (conv.type==="group" && (conv.myRole==="creator"||conv.myRole==="moderator")) await renderWallRequests(conv);
 
-  document.getElementById(
-    "modGroup"
-  ).style.display =
-    canModerate
-      ? "block"
-      : "none";
+  document.getElementById("membersGroup").style.display = conv.type==="group" ? "block" : "none";
+  if (conv.type==="group") renderMembersList(conv);
 
-  if (canModerate)
-    await renderWallRequests(conv);
+  const {data: settings} = await sb.from("member_settings").select("notifications_enabled")
+    .eq("conversation_id", conv.id).eq("user_id", me.id).maybeSingle();
+  document.getElementById("muteToggle").checked = !settings || settings.notifications_enabled !== false;
 
-  document.getElementById(
-    "membersGroup"
-  ).style.display =
-    conv.type==="group"
-      ? "block"
-      : "none";
-
-  if (conv.type==="group")
-    renderMembersList(conv);
-
-  const {data:settings} =
-    await sb
-      .from("member_settings")
-      .select("notifications_enabled")
-      .eq("conversation_id",conv.id)
-      .eq("user_id",me.id)
-      .maybeSingle();
-
-  document.getElementById(
-    "muteToggle"
-  ).checked =
-    !settings ||
-    settings.notifications_enabled !== false;
-
-  document.getElementById(
-    "chatSettingsOverlay"
-  ).classList.add("show");
+  document.getElementById("chatSettingsOverlay").classList.add("show");
 }
 
 function renderPreview(conv){
-
-  const box =
-    document.getElementById(
-      "previewBox"
-    );
-
-  const idx =
-    conv.wallpaper_public;
-
-  box.style.backgroundImage =
-    idx
-      ? `url(assets/img/wallpaper/wallpaper${idx}.png)`
-      : "none";
-
-  box.innerHTML="";
-
-  conv.members
-    .slice(0,4)
-    .forEach(m=>{
-
-      const bubble =
-        document.createElement("div");
-
-      const mine =
-        m.user_id===me.id;
-
-      bubble.className =
-        "previewMsg " +
-        (mine ? "right" : "left");
-
-      const color =
-        conv.bubbleColors[m.user_id] ||
-        DEFAULT_BUBBLE_COLOR;
-
-      bubble.style.background =
-        color;
-
-      bubble.style.color =
-        "#fff";
-
-      bubble.textContent =
-        mine
-          ? "Toi: aperçu du message"
-          : `${shortName(m)}: aperçu du message`;
-
-      box.appendChild(bubble);
-    });
+  const box = document.getElementById("previewBox");
+  const idx = conv.wallpaper_public;
+  box.style.backgroundImage = idx ? `url(assets/img/wallpaper${idx}.png)` : "none";
+  box.innerHTML = "";
+  conv.members.slice(0,4).forEach((m,i)=>{
+    const bubble = document.createElement("div");
+    const mine = m.user_id === me.id;
+    bubble.className = "previewMsg " + (mine ? "right" : "left");
+    const color = conv.bubbleColors[m.user_id] || DEFAULT_BUBBLE_COLOR;
+    bubble.style.background = color;
+    bubble.style.color = "#fff";
+    bubble.textContent = mine ? "Toi: aperçu du message" : `${shortName(m)}: aperçu du message`;
+    box.appendChild(bubble);
+  });
 }
 
-function shortName(m){
-
-  return (
-    m.profiles?.email ||
-    "?"
-  ).split("@")[0];
-}
+function shortName(m){ return (m.profiles.email||"?").split("@")[0]; }
 
 function renderColorRows(conv){
-
-  const el =
-    document.getElementById(
-      "colorRows"
-    );
-
-  el.innerHTML="";
-
-  const iAmModOrCreator =
-    conv.myRole==="creator" ||
-    conv.myRole==="moderator";
-
-  const nicknamesLocked =
-    conv.type==="group" &&
-    !conv.nicknames_allowed &&
-    !iAmModOrCreator;
+  const el = document.getElementById("colorRows");
+  el.innerHTML = "";
+  const iAmModOrCreator = conv.myRole === "creator" || conv.myRole === "moderator";
+  const nicknamesLocked = conv.type === "group" && !conv.nicknames_allowed && !iAmModOrCreator;
 
   conv.members.forEach(m=>{
+    const row = document.createElement("div");
+    row.className = "customRow";
+    const isMe = m.user_id === me.id;
+    row.innerHTML = `${pfpHtml(m.user_id)}
+      <span style="font-size:12px;min-width:60px;">${isMe ? "Toi" : escapeHtml(shortName(m))}${modoTag(m.user_id)}</span>
+      ${!isMe ? `<input type="text" placeholder="surnom" value="${escapeHtml(nicknames[m.user_id]||"")}" ${nicknamesLocked?"disabled":""}>` : `<span style="flex:1;"></span>`}
+      <input type="color" value="${conv.bubbleColors[m.user_id]||DEFAULT_BUBBLE_COLOR}">`;
 
-    const row =
-      document.createElement("div");
-
-    row.className =
-      "customRow";
-
-    const isMe =
-      m.user_id===me.id;
-
-    row.innerHTML = `
-      ${pfpHtml(m.user_id)}
-
-      <span style="font-size:12px;min-width:60px;">
-        ${
-          isMe
-            ? "Toi"
-            : escapeHtml(shortName(m))
-        }
-        ${modoTag(m.user_id)}
-      </span>
-
-      ${
-        !isMe
-          ? `
-            <input
-              type="text"
-              placeholder="surnom"
-              value="${escapeHtml(
-                nicknames[m.user_id]||""
-              )}"
-              ${nicknamesLocked?"disabled":""}
-            >
-          `
-          : `
-            <span style="flex:1;"></span>
-          `
-      }
-
-      <input
-        type="color"
-        value="${
-          conv.bubbleColors[m.user_id] ||
-          DEFAULT_BUBBLE_COLOR
-        }"
-      >
-    `;
-
-    row.querySelector(
-      'input[type="color"]'
-    ).oninput =
-      e=>{
-        conv.bubbleColors[m.user_id] =
-          e.target.value;
-
-        renderPreview(conv);
-      };
-
-    row.querySelector(
-      'input[type="color"]'
-    ).onchange =
-    async e=>{
-
-      const {error} =
-        await sb
-          .from("member_bubble_colors")
-          .upsert({
-            conversation_id:conv.id,
-            viewer_id:me.id,
-            target_user_id:m.user_id,
-            color:e.target.value
-          });
-
-      if (error)
-        alert(error.message);
-
+    row.querySelector('input[type=color]').oninput = (e)=>{
+      conv.bubbleColors[m.user_id] = e.target.value;
+      renderPreview(conv);
+    };
+    row.querySelector('input[type=color]').onchange = async (e)=>{
+      await sb.from("member_bubble_colors").upsert({
+        conversation_id: conv.id, viewer_id: me.id, target_user_id: m.user_id, color: e.target.value
+      });
       renderMessages(conv);
     };
 
-    const nickInput =
-      row.querySelector(
-        'input[type="text"]'
-      );
-
+    const nickInput = row.querySelector('input[type=text]');
     if (nickInput){
-
-      nickInput.onchange =
-      async e=>{
-
-        const nv =
-          e.target.value.trim();
-
-        if (nv===""){
-
-          await sb
-            .from("nicknames")
-            .delete()
-            .eq("viewer_id",me.id)
-            .eq("target_user_id",m.user_id);
-
+      nickInput.onchange = async (e)=>{
+        const nv = e.target.value.trim();
+        if (nv === ""){
+          await sb.from("nicknames").delete().eq("viewer_id", me.id).eq("target_user_id", m.user_id);
           delete nicknames[m.user_id];
-
         } else {
-
-          await sb
-            .from("nicknames")
-            .upsert({
-              viewer_id:me.id,
-              target_user_id:m.user_id,
-              nickname:nv
-            });
-
-          nicknames[m.user_id] =
-            nv;
+          await sb.from("nicknames").upsert({viewer_id: me.id, target_user_id: m.user_id, nickname: nv});
+          nicknames[m.user_id] = nv;
         }
-
-        renderPreview(conv);
-        renderFriends();
-        renderMessages(conv);
-        renderConvos();
+        renderPreview(conv); renderFriends(); renderMessages(conv); renderConvos();
       };
     }
-
     el.appendChild(row);
   });
 
-  if (
-    conv.type==="group" &&
-    nicknamesLocked
-  ){
-
-    const hint =
-      document.createElement("div");
-
-    hint.className =
-      "li-sub";
-
-    hint.textContent =
-      "Un modérateur a désactivé les surnoms dans ce groupe.";
-
+  if (conv.type === "group" && nicknamesLocked){
+    const hint = document.createElement("div");
+    hint.className = "li-sub";
+    hint.textContent = "Un modérateur a désactivé les surnoms dans ce groupe.";
     el.appendChild(hint);
   }
 }
 
-document.getElementById(
-  "wallModePublic"
-).onclick =
-()=>{
-  wallMode="public";
-  toggleWallButtons();
-};
-
-document.getElementById(
-  "wallModePrivate"
-).onclick =
-()=>{
-  if (
-    activeConvo &&
-    activeConvo.type==="dm"
-  )
-    return;
-
-  wallMode="private";
-  toggleWallButtons();
-};
-
+document.getElementById("wallModePublic").onclick = ()=>{ wallMode="public"; toggleWallButtons(); };
+document.getElementById("wallModePrivate").onclick = ()=>{ if(activeConvo.type==="dm") return; wallMode="private"; toggleWallButtons(); };
 function toggleWallButtons(){
-
-  document.getElementById(
-    "wallModePublic"
-  ).classList.toggle(
-    "active",
-    wallMode==="public"
-  );
-
-  document.getElementById(
-    "wallModePrivate"
-  ).classList.toggle(
-    "active",
-    wallMode==="private"
-  );
-
-  const hint =
-    document.getElementById(
-      "wallHint"
-    );
-
-  if (wallMode==="public"){
-
-    hint.textContent =
-      activeConvo.type==="group"
-        ? "Le fond sera visible pour tout le monde (approbation d'un modérateur requise si tu n'en es pas un)."
-        : "Le fond sera visible pour toi et ton contact.";
-
-  } else {
-
-    hint.textContent =
-      "Le fond ne sera visible que pour toi, dans ce groupe.";
-  }
-
+  document.getElementById("wallModePublic").classList.toggle("active", wallMode==="public");
+  document.getElementById("wallModePrivate").classList.toggle("active", wallMode==="private");
+  const hint = document.getElementById("wallHint");
+  if (wallMode==="public") hint.textContent = activeConvo.type==="group"
+    ? "Le fond sera visible pour tout le monde (approbation d'un modérateur requise si tu n'en es pas un)."
+    : "Le fond sera visible pour toi et ton contact.";
+  else hint.textContent = "Le fond ne sera visible que pour toi, dans ce groupe.";
   renderWallGrid(activeConvo);
 }
 
 async function renderWallGrid(conv){
-
-  const el =
-    document.getElementById(
-      "wallGrid"
-    );
-
-  el.innerHTML="";
-
+  const el = document.getElementById("wallGrid");
+  el.innerHTML = "";
   let selected = null;
-
-  if (wallMode==="public"){
-
-    selected =
-      conv.wallpaper_public;
-
-  } else {
-
-    const {data} =
-      await sb
-        .from("member_settings")
-        .select("wallpaper_private")
-        .eq("conversation_id",conv.id)
-        .eq("user_id",me.id)
-        .maybeSingle();
-
-    selected =
-      data &&
-      data.wallpaper_private;
+  if (wallMode === "public") selected = conv.wallpaper_public;
+  else {
+    const {data} = await sb.from("member_settings").select("wallpaper_private")
+      .eq("conversation_id", conv.id).eq("user_id", me.id).maybeSingle();
+    selected = data && data.wallpaper_private;
   }
-
-  for (
-    let i=1;
-    i<=WALLPAPER_COUNT;
-    i++
-  ){
-
-    const thumb =
-      document.createElement("div");
-
-    thumb.className =
-      "wallThumb" +
-      (
-        selected===i
-          ? " selected"
-          : ""
-      );
-
-    thumb.style.backgroundImage =
-      `url(assets/img/wallpaper/wallpaper${i}.png)`;
-
-    thumb.onclick =
-      ()=>chooseWallpaper(conv,i);
-
+  for (let i=1;i<=WALLPAPER_COUNT;i++){
+    const thumb = document.createElement("div");
+    thumb.className = "wallThumb" + (selected===i ? " selected" : "");
+    thumb.style.backgroundImage = `url(assets/img/wallpaper/wallpaper${i}.png)`;
+    thumb.onclick = ()=> chooseWallpaper(conv, i);
     el.appendChild(thumb);
   }
-
   toggleWallHint(conv);
 }
-
 function toggleWallHint(conv){
-
-  document.getElementById(
-    "wallHint"
-  ).textContent =
+  document.getElementById("wallHint").textContent =
     wallMode==="public"
-
-      ? (
-          conv.type==="group"
-            ? "Le fond sera visible pour tout le monde (approbation d'un modérateur requise si tu n'en es pas un)."
-            : "Le fond sera visible pour toi et ton contact."
-        )
-
+      ? (conv.type==="group" ? "Le fond sera visible pour tout le monde (approbation d'un modérateur requise si tu n'en es pas un)." : "Le fond sera visible pour toi et ton contact.")
       : "Le fond ne sera visible que pour toi, dans ce groupe.";
 }
 
-async function chooseWallpaper(conv,idx){
-
-  if (wallMode==="public"){
-
-    const {
-      data,
-      error
-    } =
-      await sb.rpc(
-        "request_public_wallpaper",
-        {
-          p_conversation_id:conv.id,
-          p_index:idx
-        }
-      );
-
-    if (error)
-      return alert(
-        traduireRpc(error.message)
-      );
-
-    if (data==="applique"){
-
-      conv.wallpaper_public =
-        idx;
-
-      await applyWallpaper(conv);
-
-      renderPreview(conv);
-
-      alert(
-        "Fond d'écran appliqué pour tout le monde."
-      );
-
+async function chooseWallpaper(conv, idx){
+  if (wallMode === "public"){
+    const {data, error} = await sb.rpc("request_public_wallpaper", {p_conversation_id: conv.id, p_index: idx});
+    if (error) return alert(traduireRpc(error.message));
+    if (data === "applique"){
+      conv.wallpaper_public = idx;
+      applyWallpaper(conv); renderPreview(conv);
+      alert("Fond d'écran appliqué pour tout le monde.");
     } else {
-
-      alert(
-        "Demande envoyée aux modérateurs du groupe."
-      );
+      alert("Demande envoyée aux modérateurs du groupe.");
     }
-
   } else {
-
-    const {error} =
-      await sb
-        .from("member_settings")
-        .upsert({
-          conversation_id:conv.id,
-          user_id:me.id,
-          wallpaper_private:idx
-        });
-
-    if (error)
-      return alert(error.message);
-
-    await applyWallpaper(conv);
-
-    alert(
-      "Fond d'écran appliqué pour toi seulement."
-    );
+    await sb.from("member_settings").upsert({conversation_id: conv.id, user_id: me.id, wallpaper_private: idx});
+    applyWallpaper(conv);
+    alert("Fond d'écran appliqué pour toi seulement.");
   }
-
   renderWallGrid(conv);
 }
 
 async function renderWallRequests(conv){
-
-  const {data,error} =
-    await sb
-      .from("wallpaper_requests")
-      .select(
-        "*, profiles:requested_by(email)"
-      )
-      .eq("conversation_id",conv.id)
-      .eq("status","pending");
-
-  const el =
-    document.getElementById(
-      "wallRequests"
-    );
-
-  el.innerHTML="";
-
-  if (error){
-
-    el.innerHTML =
-      `<div class="li-sub">
-        ${escapeHtml(error.message)}
-      </div>`;
-
-    return;
-  }
-
-  if (!data || !data.length){
-
-    el.innerHTML =
-      `<div class="li-sub">
-        Aucune demande en attente.
-      </div>`;
-
-    return;
-  }
-
+  const {data} = await sb.from("wallpaper_requests").select("*, profiles:requested_by(email)")
+    .eq("conversation_id", conv.id).eq("status","pending");
+  const el = document.getElementById("wallRequests");
+  el.innerHTML = "";
+  if (!data || !data.length){ el.innerHTML = `<div class="li-sub">Aucune demande en attente.</div>`; return; }
   data.forEach(r=>{
-
-    const row =
-      document.createElement("div");
-
-    row.className =
-      "reqRow";
-
-    row.innerHTML = `
-      <div class="wallThumb"
-        style="
-          width:36px;
-          height:36px;
-          background-image:url(
-            assets/img/wallpaper/wallpaper${r.wallpaper_index}.png
-          )
-        ">
-      </div>
-
-      <span style="flex:1;">
-        ${escapeHtml(r.profiles?.email || "?")}
-        propose le fond #${r.wallpaper_index}
-      </span>
-
-      <button data-a="ok"
-        style="background:var(--ok);color:#04241a;">
-        Accepter
-      </button>
-
-      <button data-a="no"
-        style="background:#3a3f52;color:#fff;">
-        Refuser
-      </button>
-    `;
-
-    row.querySelector(
-      '[data-a="ok"]'
-    ).onclick =
-    async ()=>{
-
-      const {error} =
-        await sb.rpc(
-          "approve_wallpaper_request",
-          {
-            p_request_id:r.id,
-            p_approve:true
-          }
-        );
-
-      if (error)
-        return alert(
-          traduireRpc(error.message)
-        );
-
-      await loadConversations();
+    const row = document.createElement("div");
+    row.className = "reqRow";
+    row.innerHTML = `<div class="wallThumb" style="width:36px;height:36px;background-image:url(assets/img/wallpaper${r.wallpaper_index}.png)"></div>
+      <span style="flex:1;">${escapeHtml(r.profiles.email)} propose le fond #${r.wallpaper_index}</span>
+      <button data-a="ok" style="background:var(--ok);color:#04241a;">Accepter</button>
+      <button data-a="no" style="background:#3a3f52;color:#fff;">Refuser</button>`;
+    row.querySelector('[data-a="ok"]').onclick = async ()=>{
+      await sb.rpc("approve_wallpaper_request", {p_request_id: r.id, p_approve: true});
+      await loadConversations(); openChatSettingsModal();
+    };
+    row.querySelector('[data-a="no"]').onclick = async ()=>{
+      await sb.rpc("approve_wallpaper_request", {p_request_id: r.id, p_approve: false});
       openChatSettingsModal();
     };
-
-    row.querySelector(
-      '[data-a="no"]'
-    ).onclick =
-    async ()=>{
-
-      const {error} =
-        await sb.rpc(
-          "approve_wallpaper_request",
-          {
-            p_request_id:r.id,
-            p_approve:false
-          }
-        );
-
-      if (error)
-        return alert(
-          traduireRpc(error.message)
-        );
-
-      openChatSettingsModal();
-    };
-
     el.appendChild(row);
   });
 }
 
-document.getElementById(
-  "muteToggle"
-).onchange =
-async e=>{
-
-  if (!activeConvo)
-    return;
-
-  const {error} =
-    await sb
-      .from("member_settings")
-      .upsert({
-        conversation_id:activeConvo.id,
-        user_id:me.id,
-        notifications_enabled:e.target.checked
-      });
-
-  if (error)
-    return alert(error.message);
-
-  activeConvo.notificationsEnabled =
-    e.target.checked;
+document.getElementById("muteToggle").onchange = async (e)=>{
+  if (!activeConvo) return;
+  await sb.from("member_settings").upsert({
+    conversation_id: activeConvo.id, user_id: me.id, notifications_enabled: e.target.checked
+  });
+  activeConvo.notificationsEnabled = e.target.checked;
 };
 
 function renderMembersList(conv){
-
-  const el =
-    document.getElementById(
-      "membersList"
-    );
-
-  el.innerHTML="";
-
-  const iCanPromote =
-    conv.myRole==="creator" ||
-    conv.myRole==="moderator";
-
+  const el = document.getElementById("membersList");
+  el.innerHTML = "";
+  const iCanPromote = conv.myRole === "creator" || conv.myRole === "moderator";
   conv.members.forEach(m=>{
-
-    const row =
-      document.createElement("div");
-
-    row.className =
-      "memberRow";
-
-    const roleLabel =
-      m.role==="creator"
-        ? "créateur"
-        : m.role==="moderator"
-          ? "modérateur"
-          : "membre";
-
-    row.innerHTML = `
-      <div class="pfp">
-        ${
-          m.user_id===me.id
-            ? "🙂"
-            : "👤"
-        }
-      </div>
-
-      <span style="font-size:13px;">
-        ${
-          m.user_id===me.id
-            ? "Toi"
-            : escapeHtml(shortName(m))
-        }
-      </span>
-
-      <span class="roleTag ${m.role}">
-        ${roleLabel}
-      </span>
-    `;
-
-    if (
-      iCanPromote &&
-      m.role==="member"
-    ){
-
-      const btn =
-        document.createElement("button");
-
-      btn.className =
-        "promoteBtn";
-
-      btn.textContent =
-        "Promouvoir modérateur";
-
-      btn.onclick =
-      async ()=>{
-
-        const {error} =
-          await sb.rpc(
-            "promote_moderator",
-            {
-              p_conversation_id:conv.id,
-              p_user_id:m.user_id
-            }
-          );
-
-        if (error)
-          return alert(
-            traduireRpc(error.message)
-          );
-
+    const row = document.createElement("div");
+    row.className = "memberRow";
+    const roleLabel = m.role==="creator" ? "créateur" : m.role==="moderator" ? "modérateur" : "membre";
+    row.innerHTML = `<div class="pfp">${m.user_id===me.id ? "🙂" : "👤"}</div>
+      <span style="font-size:13px;">${m.user_id===me.id ? "Toi" : escapeHtml(shortName(m))}</span>
+      <span class="roleTag ${m.role}">${roleLabel}</span>`;
+    if (iCanPromote && m.role === "member"){
+      const btn = document.createElement("button");
+      btn.className = "promoteBtn";
+      btn.textContent = "Promouvoir modérateur";
+      btn.onclick = async ()=>{
+        const {error} = await sb.rpc("promote_moderator", {p_conversation_id: conv.id, p_user_id: m.user_id});
+        if (error) return alert(traduireRpc(error.message));
         await loadConversations();
-
-        activeConvo =
-          conversations.find(
-            c=>c.id===conv.id
-          );
-
-        renderMembersList(
-          activeConvo
-        );
+        activeConvo = conversations.find(c=>c.id===conv.id);
+        renderMembersList(activeConvo);
       };
-
       row.appendChild(btn);
     }
-
     el.appendChild(row);
   });
 }
@@ -3203,34 +1312,16 @@ function renderMembersList(conv){
    UTIL
 ============================================================ */
 function escapeHtml(s){
-
-  return (s||"").replace(
-    /[&<>"']/g,
-    c=>({
-      "&":"&amp;",
-      "<":"&lt;",
-      ">":"&gt;",
-      '"':"&quot;",
-      "'":"&#39;"
-    }[c])
-  );
+  return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
 /* ============================================================
    INIT
 ============================================================ */
 (async function init(){
-
-  const {
-    data:{session}
-  } =
-    await sb.auth.getSession();
-
-  if (session)
-    await boot();
+  const {data:{session}} = await sb.auth.getSession();
+  if (session) await boot();
 })();
 </script>
-
 </body>
 </html>
-```
