@@ -564,33 +564,49 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const WALLPAPER_COUNT = 10;
 const DEFAULT_BUBBLE_COLOR = "#3a7bd5";
 
+const SMRC_DOMAINS = ["eleve.smrc.qc.ca", "smrc.eleve.qc.ca"];
+function endsWithSmrcDomain(email){
+  const e = (email||"").toLowerCase();
+  return SMRC_DOMAINS.some(d => e.endsWith("@"+d));
+}
+
 const DISGUISES = {
   pluriportail: {
     base: "assets/base.png", imgL: "assets/base-l.png",
-    escapeImg: "assets/false/false.png",
+    escapeImg: "assets/false.png",
     hashUrl: "https://portail.smrc.qc.ca/pluriportail/pfr/MainExterne.srf?P=LoginReq",
-    staticTitle: "Pluriportail", label: "Pluriportail (par défaut)"
+    staticTitle: "Pluriportail", label: "Pluriportail"
   },
   gmail: {
     base: "assets/base-2.png", imgL: "assets/base-2-l.png",
     escapeImg: "assets/false-2.png",
     hashUrl: "https://mail.google.com/mail/u/0/#inbox",
-    titleFn: n => n>0 ? `Inbox (${n}) - ${me?.email||""} - Gmail` : `Inbox - ${me?.email||""} - Gmail`,
+    titleFn: n => {
+      const email = me?.email || "";
+      const suffix = endsWithSmrcDomain(email) ? " - Courriel SÉMINAIRE MARIE-REINE-DU-CLERGÉ" : "";
+      return n>0
+        ? `Boîte de réception (${n}) - ${email} - Gmail${suffix}`
+        : `Boîte de réception - ${email} - Gmail${suffix}`;
+    },
     label: "Gmail"
   },
   newtab: {
     base: "assets/base-3.png", imgL: "assets/base-3-l.png",
     escapeImg: "assets/false-3.png",
-    hashUrl: "https://www.google.com/",
+    hashUrl: "https://google.com/",
     staticTitle: "Nouvel onglet", label: "Nouvel onglet"
   },
   classroom: {
     base: "assets/base-4.png", imgL: "assets/base-4-l.png",
-    escapeImg: "assets/false/false.png",
-    hashUrl: "https://portail.smrc.qc.ca/pluriportail/pfr/MainExterne.srf?P=LoginReq",
+    escapeImg: "assets/false-4.png",
+    hashUrl: "https://classroom.google.com/",
     staticTitle: "Accueil - Classroom", label: "Classroom"
   }
 };
+
+function defaultPresetFor(email){
+  return endsWithSmrcDomain(email) ? "pluriportail" : "gmail";
+}
 
 const GAME_SITES = [
   {name: "Garticphone", url: "https://garticphone.com/"},
@@ -624,10 +640,29 @@ function cacheProfile(p){
     username:p.username, read_receipts_enabled:p.read_receipts_enabled
   };
 }
-function pfpHtml(userId, sizeClass){
+function avatarImgHtml(userId){
   const p = profilesCache[userId];
-  if (p && p.avatar_url) return `<div class="pfp ${sizeClass||''}"><img src="${p.avatar_url}" onerror="this.parentElement.textContent='👤'"></div>`;
-  return `<div class="pfp ${sizeClass||''}">${userId===me?.id ? "🙂" : "👤"}</div>`;
+  const emoji = userId === me?.id ? "🙂" : "👤";
+  if (!p) return emoji;
+  const codeSuffix = p.code ? p.code.replace("RZA-","") : "";
+  const rzaPath = codeSuffix ? `assets/RZA/${codeSuffix}/pfp.png` : "";
+  const fallback = p.avatar_url || "";
+  const src = rzaPath || fallback;
+  if (!src) return emoji;
+  return `<img src="${src}" data-fallback="${escapeHtml(fallback)}" data-emoji="${emoji}" onerror="rzaAvatarError(this)">`;
+}
+function rzaAvatarError(img){
+  if (img.dataset.stage !== "fb" && img.dataset.fallback && img.src.indexOf("assets/RZA/") !== -1){
+    img.dataset.stage = "fb";
+    img.src = img.dataset.fallback;
+    return;
+  }
+  const span = document.createElement("span");
+  span.textContent = img.dataset.emoji || "👤";
+  img.replaceWith(span);
+}
+function pfpHtml(userId, sizeClass){
+  return `<div class="pfp ${sizeClass||''}">${avatarImgHtml(userId)}</div>`;
 }
 function modoTag(userId){
   const p = profilesCache[userId];
@@ -635,7 +670,7 @@ function modoTag(userId){
 }
 
 // Emails @eleve.smrc.qc.ca -> initiales seulement (ex: charles-antoine.ducard -> CAD)
-function isSmrcEmail(email){ return /@eleve\.smrc\.qc\.ca$/i.test(email||""); }
+function isSmrcEmail(email){ return endsWithSmrcDomain(email); }
 function initialsFromSmrcEmail(email){
   const local = (email||"").split("@")[0];
   return local.split(".").map(part =>
@@ -688,6 +723,12 @@ document.getElementById("formSignup").addEventListener("submit", async (e)=>{
   const email = document.getElementById("signupEmail").value.trim();
   const password = document.getElementById("signupPass").value;
   const username = document.getElementById("signupUsername").value.trim();
+
+  if (await isEmailBanned(email)){
+    setAuthError("Cette adresse courriel n'est pas autorisée à s'inscrire.");
+    return;
+  }
+
   document.getElementById("signupBtn").disabled = true;
   document.getElementById("loadingCode").style.display = "block";
 
@@ -700,10 +741,12 @@ document.getElementById("formSignup").addEventListener("submit", async (e)=>{
 
   if (error) return setAuthError(traduireErreur(error.message));
 
-  if (username && data.user){
+  if (data.user){
+    const updates = { favicon_preset: defaultPresetFor(email) };
+    if (username) updates.username = username;
     let tries = 0, ok = false;
     while(!ok && tries < 5){
-      const {error: uErr} = await sb.from("profiles").update({username}).eq("id", data.user.id);
+      const {error: uErr} = await sb.from("profiles").update(updates).eq("id", data.user.id);
       if (!uErr){ ok = true; break; }
       await new Promise(r=>setTimeout(r,400)); tries++;
     }
@@ -713,6 +756,28 @@ document.getElementById("formSignup").addEventListener("submit", async (e)=>{
 });
 
 function setAuthError(msg){ document.getElementById("authError").textContent = msg; }
+
+async function isEmailBanned(email){
+  const emailLower = (email||"").toLowerCase().trim();
+  const domain = emailLower.split("@")[1] || "";
+  try{
+    const res = await fetch("assets/banlist.txt", {cache:"no-store"});
+    if (!res.ok) return false;
+    const text = await res.text();
+    for (let line of text.split("\n")){
+      line = line.trim();
+      if (!line || line.startsWith("#")) continue;
+      if (line.startsWith("@")){
+        if (line.slice(1).toLowerCase() === emailLower) return true;
+      } else {
+        if (line.toLowerCase() === domain) return true;
+      }
+    }
+  }catch(e){
+    // fichier absent ou inaccessible -> on ne bloque personne
+  }
+  return false;
+}
 function traduireErreur(msg){
   if (/already registered/i.test(msg)) return "Ce courriel a déjà un compte.";
   if (/invalid login/i.test(msg)) return "Courriel ou mot de passe invalide.";
@@ -1059,8 +1124,7 @@ async function openConversation(convoId){
   if (conv.type === "group"){ chatPfpEl.innerHTML = "👥"; }
   else {
     const other = conv.members.find(m=>m.user_id!==me.id);
-    const p = other && profilesCache[other.user_id];
-    chatPfpEl.innerHTML = (p && p.avatar_url) ? `<img src="${p.avatar_url}" onerror="this.remove()">` : "👤";
+    chatPfpEl.innerHTML = other ? avatarImgHtml(other.user_id) : "👤";
   }
   document.getElementById("chatName").innerHTML = escapeHtml(conv.displayName) +
     (conv.type==="dm" ? modoTag(conv.members.find(m=>m.user_id!==me.id)?.user_id) : "");
@@ -1159,8 +1223,7 @@ function renderMessageRow(conv, m, isLastMine){
 
   const senderName = mine ? "Toi" : nameFor(m.sender_id);
   const color = conv.bubbleColors[m.sender_id] || DEFAULT_BUBBLE_COLOR;
-  const p = profilesCache[m.sender_id];
-  const avatarInner = (p && p.avatar_url) ? `<img src="${p.avatar_url}" onerror="this.parentElement.textContent='👤'">` : (mine ? "🙂" : "👤");
+  const avatarInner = avatarImgHtml(m.sender_id);
 
   const now = Date.now();
   const created = new Date(m.created_at).getTime();
