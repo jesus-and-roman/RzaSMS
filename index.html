@@ -274,6 +274,24 @@
     border-radius:8px;font-size:12px;margin-top:6px;
   }
   .blockBtn.blocked{border-color:var(--ok);color:var(--ok);}
+  .imgChip{position:relative;width:44px;height:44px;border-radius:8px;overflow:hidden;border:1px solid var(--border);flex-shrink:0;}
+  .imgChip img{width:100%;height:100%;object-fit:cover;}
+  .imgChip button{
+    position:absolute;top:0;right:0;background:rgba(0,0,0,.7);color:#fff;border:none;
+    width:16px;height:16px;font-size:10px;line-height:16px;padding:0;border-radius:0 0 0 6px;
+  }
+  .imgStack{position:relative;margin-top:6px;}
+  .imgStack img{
+    position:absolute;width:92px;height:92px;object-fit:cover;border-radius:10px;
+    border:2px solid var(--panel);box-shadow:0 3px 10px rgba(0,0,0,.45);cursor:pointer;
+    transition:transform .15s ease;
+  }
+  .imgStack img:hover{transform:scale(1.08) rotate(0deg) !important;z-index:99 !important;}
+  .siteBtn{
+    background:var(--panel-2);border:1px solid var(--border);color:var(--text-dim);
+    border-radius:8px;padding:6px 10px;font-size:12px;
+  }
+  .siteBtn:hover, .siteBtn.active{color:var(--text);border-color:var(--accent-2);}
 </style>
 </head>
 <body>
@@ -348,8 +366,12 @@
     <div class="chatArea">
       <div id="noConvo" class="noSelection">Sélectionne une discussion</div>
       <div id="gameWrap" style="display:none;flex:1;flex-direction:column;min-height:0;">
-        <div class="chatHeader"><span class="li-name">🎮 CrazyGames</span></div>
-        <iframe src="https://www.crazygames.com/" style="flex:1;border:none;width:100%;background:#000;"
+        <div class="chatHeader" style="flex-wrap:wrap;row-gap:8px;">
+          <span class="li-name">🎮 Jeu</span>
+          <div id="gameSiteButtons" style="display:flex;gap:6px;flex-wrap:wrap;margin-left:10px;"></div>
+        </div>
+        <div id="gamePlaceholder" class="noSelection">Choisis un jeu ci-dessus. (Certains sites bloquent l'affichage en iframe — si l'écran reste vide, essaie un autre jeu.)</div>
+        <iframe id="gameFrame" style="display:none;flex:1;border:none;width:100%;background:#000;"
           allow="fullscreen; autoplay; gamepad; accelerometer; gyroscope"></iframe>
       </div>
       <div id="convoWrap" style="display:none;flex:1;display:none;flex-direction:column;min-height:0;">
@@ -362,9 +384,13 @@
           <button class="gearBtn" id="openChatSettings">⚙</button>
         </div>
         <div class="messages" id="messagesEl"></div>
-        <div class="composer">
-          <input id="msgInput" placeholder="Écris un message...">
-          <button id="sendBtn">Envoyer</button>
+        <div class="composer" style="flex-direction:column;gap:8px;align-items:stretch;">
+          <div id="imgChips" style="display:none;gap:8px;flex-wrap:wrap;"></div>
+          <div style="display:flex;gap:10px;">
+            <button class="gearBtn" id="attachImgBtn" title="Ajouter une image (lien)">🖼</button>
+            <input id="msgInput" placeholder="Écris un message...">
+            <button id="sendBtn">Envoyer</button>
+          </div>
         </div>
       </div>
     </div>
@@ -565,6 +591,19 @@ const DISGUISES = {
     staticTitle: "Accueil - Classroom", label: "Classroom"
   }
 };
+
+const GAME_SITES = [
+  {name: "Garticphone", url: "https://garticphone.com/"},
+  {name: "Skribbl.io", url: "https://skribbl.io/"},
+  {name: "Colonist.io", url: "https://colonist.io/"},
+  {name: "Cardzmania", url: "https://www.cardzmania.com/"},
+  {name: "Krunker.io", url: "https://krunker.io/"},
+  {name: "Horsepaste", url: "https://www.horsepaste.com/"},
+  {name: "neal.fun", url: "https://neal.fun/"},
+  {name: "Poki", url: "https://poki.com/"},
+  {name: "Friv 2017", url: "https://friv2017.com/"}
+];
+let pendingImages = [];
 
 /* ============================================================
    ÉTAT
@@ -876,7 +915,26 @@ function traduireRpc(msg){
 ============================================================ */
 document.getElementById("tabFriends").onclick = ()=> switchSideTab("friends");
 document.getElementById("tabConvos").onclick = ()=> switchSideTab("convos");
-document.getElementById("tabGames").onclick = ()=> switchSideTab("games");
+document.getElementById("tabGames").onclick = ()=>{ renderGameButtons(); switchSideTab("games"); };
+
+function renderGameButtons(){
+  const el = document.getElementById("gameSiteButtons");
+  if (el.childElementCount) return;
+  GAME_SITES.forEach(site=>{
+    const btn = document.createElement("button");
+    btn.className = "siteBtn";
+    btn.textContent = site.name;
+    btn.onclick = ()=>{
+      document.querySelectorAll(".siteBtn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      const frame = document.getElementById("gameFrame");
+      frame.src = site.url;
+      frame.style.display = "block";
+      document.getElementById("gamePlaceholder").style.display = "none";
+    };
+    el.appendChild(btn);
+  });
+}
 function switchSideTab(which){
   document.getElementById("tabFriends").classList.toggle("active", which==="friends");
   document.getElementById("tabConvos").classList.toggle("active", which==="convos");
@@ -990,6 +1048,8 @@ async function openConversation(convoId){
   const conv = conversations.find(c=>c.id===convoId);
   if (!conv) return;
   activeConvo = conv;
+  pendingImages = [];
+  renderImgChips();
 
   document.getElementById("noConvo").style.display = "none";
   const wrap = document.getElementById("convoWrap");
@@ -1109,14 +1169,24 @@ function renderMessageRow(conv, m, isLastMine){
   const receipt = (mine && isLastMine) ? readReceiptText(conv, m) : "";
 
   const wrap = document.createElement("div");
+  const images = Array.isArray(m.image_urls) ? m.image_urls : [];
+  const stackWidth = 92 + Math.max(0, images.length-1) * 16;
+  const stackHeight = 92 + Math.max(0, images.length-1) * 12;
+  const imgStackHtml = images.length ? `
+    <div class="imgStack" style="width:${stackWidth}px;height:${stackHeight}px;">
+      ${images.map((url,i)=>`<img src="${url}" loading="lazy" style="left:${i*16}px;top:${i*12}px;z-index:${i};transform:rotate(${(i%2===0?-1:1)*(2+i*2)}deg);" onclick="window.open('${url.replace(/'/g,"\\'")}','_blank')" onerror="this.style.display='none'">`).join("")}
+    </div>` : "";
+
   wrap.className = "msgWithAvatar " + (mine ? "mine" : "theirs");
   wrap.innerHTML = `
     <div class="msgAvatar">${avatarInner}</div>
     <div class="msgBody">
       <div class="msgSender">${escapeHtml(senderName)}${!mine ? modoTag(m.sender_id) : ""}</div>
+      ${(!m.deleted && !m.content && images.length) ? "" : `
       <div class="bubble" style="background:${m.deleted ? "#2a2f3d" : color}; color:${m.deleted ? "#7a8196" : "#fff"};">
         ${m.deleted ? "<i>Message supprimé</i>" : escapeHtml(m.content)}
-      </div>
+      </div>`}
+      ${!m.deleted ? imgStackHtml : ""}
       <div class="msgMeta">
         <span>${new Date(m.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}${m.edited_at ? " · modifié" : ""}</span>
         ${canEdit ? `<button data-act="edit">modifier</button>` : ""}
@@ -1151,13 +1221,38 @@ async function sendMessage(){
   }
   const input = document.getElementById("msgInput");
   const content = input.value.trim();
-  if (!content) return;
+  if (!content && pendingImages.length === 0) return;
   input.value = "";
-  const {error} = await sb.from("messages").insert({
-    conversation_id: activeConvo.id, sender_id: me.id, content
-  });
-  if (error) alert(error.message);
+  const payload = { conversation_id: activeConvo.id, sender_id: me.id, content };
+  if (pendingImages.length) payload.image_urls = pendingImages.slice();
+  const {error} = await sb.from("messages").insert(payload);
+  if (error) return alert(error.message);
+  pendingImages = [];
+  renderImgChips();
 }
+
+function renderImgChips(){
+  const el = document.getElementById("imgChips");
+  el.innerHTML = "";
+  el.style.display = pendingImages.length ? "flex" : "none";
+  pendingImages.forEach((url, idx)=>{
+    const chip = document.createElement("div");
+    chip.className = "imgChip";
+    chip.innerHTML = `<img src="${url}" onerror="this.style.opacity=0.2"><button>×</button>`;
+    chip.querySelector("button").onclick = ()=>{
+      pendingImages.splice(idx,1);
+      renderImgChips();
+    };
+    el.appendChild(chip);
+  });
+}
+
+document.getElementById("attachImgBtn").onclick = ()=>{
+  const url = prompt("Colle le lien de l'image (x02.me recommandé) :");
+  if (!url) return;
+  pendingImages.push(url.trim());
+  renderImgChips();
+};
 
 function listenToConvoMessages(convoId){
   if (msgChannel) sb.removeChannel(msgChannel);
