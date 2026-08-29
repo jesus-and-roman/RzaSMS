@@ -355,6 +355,76 @@
   .quickReplyMenu.show{display:block;}
   .quickReplyMenu .qrItem{padding:7px 8px;font-size:12px;border-radius:6px;cursor:pointer;}
   .quickReplyMenu .qrItem:hover{background:var(--panel-2);}
+
+  /* ============ OMBRES & ANIMATIONS ============ */
+  *{ transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease; }
+
+  @keyframes fadeInUp{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes modalPop{ from{ opacity:0; transform:scale(.92) translateY(10px); } to{ opacity:1; transform:scale(1) translateY(0); } }
+  @keyframes pulseBadge{ 0%{ transform:scale(1); } 30%{ transform:scale(1.35); } 60%{ transform:scale(.95); } 100%{ transform:scale(1); } }
+  @keyframes bounceDot{ 0%,80%,100%{ transform:translateY(0); opacity:.5; } 40%{ transform:translateY(-4px); opacity:1; } }
+  @keyframes spinSlow{ to{ transform:rotate(360deg); } }
+  @keyframes shimmerIn{ from{ opacity:0; transform:translateX(-6px); } to{ opacity:1; transform:translateX(0); } }
+
+  .authCard{ box-shadow:0 20px 60px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3); animation: modalPop .35s ease; }
+  .modal{ box-shadow:0 24px 70px rgba(0,0,0,.55); animation: modalPop .25s cubic-bezier(.2,.9,.3,1.2); }
+  .overlay.show{ animation: fadeInUp .15s ease; }
+  .sidebar{ box-shadow:2px 0 16px rgba(0,0,0,.25); }
+  .chatHeader{ box-shadow:0 2px 10px rgba(0,0,0,.25); }
+  .composer{ box-shadow:0 -2px 10px rgba(0,0,0,.2); }
+  .listItem{ box-shadow:0 0 0 rgba(0,0,0,0); }
+  .listItem:hover{ box-shadow:0 3px 10px rgba(0,0,0,.3); transform:translateX(2px); }
+  .listItem.active{ box-shadow:0 4px 14px rgba(255,93,115,.15); }
+  .pfp{ box-shadow:0 2px 6px rgba(0,0,0,.35); transition: transform .2s ease, box-shadow .2s ease; }
+  .pfp:hover{ transform:scale(1.07); }
+  .bubble{ box-shadow:0 3px 10px rgba(0,0,0,.3); animation: fadeInUp .22s ease; }
+  .msgRow{ animation: fadeInUp .25s ease; }
+  .btn-primary{ box-shadow:0 4px 14px rgba(255,93,115,.35); transition: transform .12s ease, box-shadow .12s ease; }
+  .btn-primary:hover{ transform:translateY(-1px); box-shadow:0 6px 20px rgba(255,93,115,.5); }
+  .btn-primary:active{ transform:translateY(0) scale(.97); }
+  #sendBtn{ box-shadow:0 3px 10px rgba(255,93,115,.4); transition: transform .1s ease; }
+  #sendBtn:active{ transform:scale(.92); }
+  .gearBtn, .icon-btn{ transition: transform .3s ease, color .15s ease, border-color .15s ease; }
+  .gearBtn:hover{ transform:rotate(35deg); }
+  .icon-btn:hover{ transform:scale(1.1); }
+  .siteBtn{ box-shadow:0 1px 4px rgba(0,0,0,.2); transition: transform .12s ease, box-shadow .12s ease; }
+  .siteBtn:hover{ transform:translateY(-2px); box-shadow:0 5px 14px rgba(0,0,0,.35); }
+  .wallThumb{ transition: transform .15s ease, box-shadow .15s ease; }
+  .wallThumb:hover{ transform:scale(1.05); box-shadow:0 4px 12px rgba(0,0,0,.4); }
+  .imgChip, .imgStack img{ box-shadow:0 3px 10px rgba(0,0,0,.4); }
+  .badge{ animation: pulseBadge .4s ease; box-shadow:0 2px 6px rgba(255,93,115,.5); }
+  .statusDot{ transition: background-color .2s ease; box-shadow:0 0 0 2px var(--panel); }
+  .reactionPill{ transition: transform .12s ease; }
+  .reactionPill:hover{ transform:scale(1.1); }
+  .switch .slider{ transition: background-color .2s ease, border-color .2s ease; }
+  .switch .slider:before{ transition: transform .2s cubic-bezier(.3,1.4,.6,1); }
+  .segRow button, .toggleRow button{ transition: transform .12s ease; }
+  .segRow button.active, .toggleRow button.active{ transform:scale(1.03); }
+  .authTabs button, .sidebar-tabs button{ transition: color .15s ease, border-color .2s ease; }
+  .reactionPicker{ animation: modalPop .15s ease; }
+  .qrItem{ animation: shimmerIn .15s ease; }
+  .pinnedBanner{ animation: fadeInUp .2s ease; }
+  input:focus, textarea:focus, select:focus{ outline:none; box-shadow:0 0 0 2px var(--accent-2); }
+
+  .typingDots{display:inline-flex;gap:3px;align-items:center;}
+  .typingDots span{width:5px;height:5px;border-radius:50%;background:var(--text-dim);animation: bounceDot 1.2s infinite ease-in-out;}
+  .typingDots span:nth-child(2){animation-delay:.15s;}
+  .typingDots span:nth-child(3){animation-delay:.3s;}
+  .typingIndicatorRow{display:flex;align-items:center;gap:8px;padding:4px 16px;font-size:11px;color:var(--text-dim);min-height:22px;}
+
+  .emojiPickerBtn{position:relative;}
+  .emojiPanel{
+    display:none;position:absolute;bottom:44px;right:0;background:var(--panel);border:1px solid var(--border);
+    border-radius:10px;padding:8px;grid-template-columns:repeat(6,1fr);gap:4px;z-index:60;width:220px;
+    box-shadow:0 12px 30px rgba(0,0,0,.5);animation: modalPop .15s ease;
+  }
+  .emojiPanel.show{display:grid;}
+  .emojiPanel button{background:none;border:none;font-size:18px;cursor:pointer;border-radius:6px;padding:3px;}
+  .emojiPanel button:hover{background:var(--panel-2);transform:scale(1.15);}
+
+  .statusDot.away{background:var(--warn);}
+  .statusDot.dnd{background:var(--accent);}
+  .statusDot.invisible{display:none;}
 </style>
 </head>
 <body>
@@ -676,6 +746,11 @@
     <div class="settingsGroup">
       <h3>Réponses rapides</h3>
       <p class="modalSub" style="margin:0 0 8px;">Des textes prêts à envoyer, accessibles avec le bouton ⚡ à côté du champ de message.</p>
+      <label style="font-size:12px;color:var(--text-dim);display:block;margin-bottom:6px;">Réponses de base</label>
+      <div class="segRow" id="qrModeRow">
+        <button data-mode="non-scolaire" class="active">Non-scolaire</button>
+        <button data-mode="scolaire">Scolaire</button>
+      </div>
       <div id="quickRepliesList" style="margin-bottom:8px;"></div>
       <button class="newGroupBtn" id="addQuickReplyBtn">+ Ajouter une réponse rapide</button>
     </div>
@@ -746,10 +821,46 @@
 
     <div class="settingsGroup">
       <h3>Statut en ligne</h3>
-      <div class="row-between">
+      <div class="segRow" id="presenceStatusRow">
+        <button data-status="online" class="active">🟢 En ligne</button>
+        <button data-status="away">🟡 Absent</button>
+        <button data-status="dnd">🔴 Occupé</button>
+        <button data-status="invisible">⚪ Invisible</button>
+      </div>
+      <div class="row-between" style="margin-top:10px;">
         <span style="font-size:13px;">Montrer aux autres quand je suis en ligne</span>
         <label class="switch"><input type="checkbox" id="onlineStatusToggle" checked><span class="slider"></span></label>
       </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Affichage avancé</h3>
+      <div class="row-between">
+        <span style="font-size:13px;">Heures relatives ("il y a 2 min")</span>
+        <label class="switch"><input type="checkbox" id="relativeTimeToggle"><span class="slider"></span></label>
+      </div>
+      <div class="row-between">
+        <span style="font-size:13px;">Détail des accusés de lecture (heure précise)</span>
+        <label class="switch"><input type="checkbox" id="readReceiptDetailToggle"><span class="slider"></span></label>
+      </div>
+      <div class="row-between">
+        <span style="font-size:13px;">Badge de non-lus : point simple au lieu du nombre</span>
+        <label class="switch"><input type="checkbox" id="dotBadgeToggle"><span class="slider"></span></label>
+      </div>
+      <div class="row-between">
+        <span style="font-size:13px;">Mode nuit automatique (18h-7h)</span>
+        <label class="switch"><input type="checkbox" id="autoNightToggle"><span class="slider"></span></label>
+      </div>
+      <div class="row-between">
+        <span style="font-size:13px;">Indicateur "en train d'écrire"</span>
+        <label class="switch"><input type="checkbox" id="typingIndicatorToggle" checked><span class="slider"></span></label>
+      </div>
+      <div class="row-between">
+        <span style="font-size:13px;">Délai d'annulation d'envoi (3s)</span>
+        <label class="switch"><input type="checkbox" id="confirmSendToggle"><span class="slider"></span></label>
+      </div>
+      <label style="font-size:12px;color:var(--text-dim);display:block;margin:10px 0 6px;">Largeur des bulles de message</label>
+      <input type="range" id="bubbleWidthSlider" min="40" max="80" value="60" style="width:100%;">
     </div>
 
     <div class="settingsGroup">
@@ -1249,6 +1360,7 @@ async function boot(){
   document.getElementById("dndStart").value = me.dnd_start_hour ?? "";
   document.getElementById("dndEnd").value = me.dnd_end_hour ?? "";
 
+  document.querySelectorAll("#qrModeRow button").forEach(b=> b.classList.toggle("active", b.dataset.mode===getQrMode()));
   renderQuickReplies();
 
   const {data: nicksData} = await sb.from("nicknames").select("*").eq("viewer_id", me.id);
@@ -2198,28 +2310,48 @@ function isInDnd(){
   return s < en ? (h >= s && h < en) : (h >= s || h < en);
 }
 
+const BASE_QUICK_REPLIES = {
+  "scolaire": ["Attention, prof!", "Ferme l'application.", "Envoie moi pas de messages, prof."],
+  "non-scolaire": ["Salut à tous!", "Comment allez-vous?"]
+};
+
+function getQrMode(){
+  return localStorage.getItem("rza_qrmode") || "non-scolaire";
+}
+function getBaseQuickReplies(){
+  return BASE_QUICK_REPLIES[getQrMode()] || [];
+}
 function getQuickReplies(){
   try{ return JSON.parse(localStorage.getItem("rza_quickreplies") || "[]"); }catch(e){ return []; }
 }
 function renderQuickReplies(){
-  const list = getQuickReplies();
+  const baseList = getBaseQuickReplies();
+  const customList = getQuickReplies();
   const settingsEl = document.getElementById("quickRepliesList");
-  settingsEl.innerHTML = list.length ? "" : `<div class="li-sub">Aucune réponse rapide pour l'instant.</div>`;
-  list.forEach((txt, i)=>{
+  settingsEl.innerHTML = "";
+
+  baseList.forEach(txt=>{
+    const row = document.createElement("div");
+    row.className = "reqRow";
+    row.innerHTML = `<span style="flex:1;">${escapeHtml(txt)}</span><span class="li-sub" style="font-size:10px;">de base</span>`;
+    settingsEl.appendChild(row);
+  });
+  customList.forEach((txt, i)=>{
     const row = document.createElement("div");
     row.className = "reqRow";
     row.innerHTML = `<span style="flex:1;">${escapeHtml(txt)}</span><button data-a="del" style="background:var(--accent);color:#fff;">✕</button>`;
     row.querySelector('[data-a="del"]').onclick = ()=>{
-      list.splice(i,1);
-      localStorage.setItem("rza_quickreplies", JSON.stringify(list));
+      customList.splice(i,1);
+      localStorage.setItem("rza_quickreplies", JSON.stringify(customList));
       renderQuickReplies();
     };
     settingsEl.appendChild(row);
   });
 
   const menuEl = document.getElementById("quickReplyMenu");
-  menuEl.innerHTML = list.length ? "" : `<div class="li-sub" style="padding:6px;">Aucune réponse rapide. Ajoute-en dans les paramètres.</div>`;
-  list.forEach(txt=>{
+  const allReplies = [...baseList, ...customList];
+  menuEl.innerHTML = allReplies.length ? "" : `<div class="li-sub" style="padding:6px;">Aucune réponse rapide.</div>`;
+  allReplies.forEach(txt=>{
     const item = document.createElement("div");
     item.className = "qrItem";
     item.textContent = txt;
@@ -2231,6 +2363,14 @@ function renderQuickReplies(){
     menuEl.appendChild(item);
   });
 }
+document.querySelectorAll("#qrModeRow button").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll("#qrModeRow button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    localStorage.setItem("rza_qrmode", b.dataset.mode);
+    renderQuickReplies();
+  };
+});
 document.getElementById("addQuickReplyBtn").onclick = ()=>{
   const txt = prompt("Texte de la réponse rapide :");
   if (!txt) return;
