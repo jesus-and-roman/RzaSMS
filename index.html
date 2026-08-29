@@ -19,10 +19,29 @@
     --ok: #45c98a;
     --warn: #e8b64a;
     --radius: 14px;
-    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --bubble-radius: 16px;
+    --app-font: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --pad-scale: 1;
+    font-family: var(--app-font);
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;background:var(--bg);color:var(--text);}
+  body.compact .messages{padding:calc(20px * var(--pad-scale));}
+  body.compact .msgWithAvatar{gap:6px;}
+  body.compact .bubble{padding:6px 10px;}
+  body.compact .listItem{padding:5px 6px;}
+  body.compact .sidebar-body{padding:6px;}
+  .bubble{border-radius:var(--bubble-radius) !important;}
+  .statusDot{width:9px;height:9px;border-radius:50%;background:var(--ok);position:absolute;
+    bottom:-1px;right:-1px;border:2px solid var(--panel);}
+  .avatarWrap{position:relative;display:inline-flex;}
+  .statusText{font-size:10px;color:var(--text-dim);}
+  .imgPlaceholder{
+    width:92px;height:92px;border-radius:10px;background:var(--panel-2);border:1px dashed var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;color:var(--text-dim);
+  }
+  .pinBtn{background:transparent;border:none;color:var(--text-dim);font-size:13px;margin-left:auto;cursor:pointer;}
+  .pinBtn.pinned{color:var(--warn);}
   button{font-family:inherit;cursor:pointer;}
   input,select{font-family:inherit;}
 
@@ -146,6 +165,7 @@
   }
   .emptyState{margin:auto;color:var(--text-dim);font-size:13px;text-align:center;}
   .msgRow{display:flex;flex-direction:column;max-width:60%;}
+  .msgRow.grouped{margin-top:-6px;}
   .msgRow.mine{align-self:flex-end;align-items:flex-end;}
   .msgRow.theirs{align-self:flex-start;align-items:flex-start;}
   .msgSender{font-size:10px;color:var(--text-dim);margin:0 6px 3px;}
@@ -304,6 +324,7 @@
     <div class="authTabs">
       <button id="tabLogin" class="active">Connexion</button>
       <button id="tabSignup">Inscription</button>
+      <button id="tabReset">Mot de passe oublié</button>
     </div>
 
     <form id="formLogin">
@@ -317,6 +338,18 @@
       <div class="field"><label>Mot de passe</label><input type="password" id="signupPass" required minlength="6"></div>
       <div class="field"><label>Nom d'utilisateur (optionnel)</label><input type="text" id="signupUsername" placeholder="ex: Chihuahua" maxlength="24"></div>
       <button class="btn-primary" type="submit" id="signupBtn">Créer le compte</button>
+    </form>
+
+    <form id="formReset" style="display:none;">
+      <p class="modalSub" style="margin:0 0 14px;">On t'envoie un lien par courriel pour choisir un nouveau mot de passe.</p>
+      <div class="field"><label>Courriel</label><input type="email" id="resetEmail" required></div>
+      <button class="btn-primary" type="submit" id="resetBtn">Envoyer le lien</button>
+    </form>
+
+    <form id="formNewPassword" style="display:none;">
+      <p class="modalSub" style="margin:0 0 14px;">Choisis ton nouveau mot de passe.</p>
+      <div class="field"><label>Nouveau mot de passe</label><input type="password" id="newPassword" required minlength="6"></div>
+      <button class="btn-primary" type="submit" id="newPasswordBtn">Confirmer</button>
     </form>
 
     <div class="loadingCode" id="loadingCode">
@@ -421,9 +454,35 @@
       <div id="wallHint" style="font-size:11px;color:var(--text-dim);"></div>
     </div>
 
+    <div class="settingsGroup">
+      <h3>Épingler</h3>
+      <div class="row-between">
+        <span style="font-size:13px;">Épingler cette discussion en haut de la liste</span>
+        <label class="switch"><input type="checkbox" id="pinToggle"><span class="slider"></span></label>
+      </div>
+    </div>
+
     <div class="settingsGroup" id="modGroup" style="display:none;">
       <h3>Demandes de fond d'écran public</h3>
       <div id="wallRequests"></div>
+    </div>
+
+    <div class="settingsGroup" id="groupAdvancedGroup" style="display:none;">
+      <h3>Groupe</h3>
+      <div class="field"><label>Description</label><input type="text" id="groupDescInput" maxlength="120"></div>
+      <div class="field"><label>Icône (lien d'image)</label><input type="text" id="groupIconInput" placeholder="https://x02.me/..."></div>
+      <button class="btn-primary" style="width:auto;padding:0 16px;margin:6px 0 14px;" id="saveGroupInfoBtn">Sauver</button>
+      <div class="row-between">
+        <span style="font-size:13px;">Verrouiller (seuls modos/créateur écrivent)</span>
+        <label class="switch"><input type="checkbox" id="lockGroupToggle"><span class="slider"></span></label>
+      </div>
+      <div style="margin-top:12px;">
+        <label style="font-size:12px;color:var(--text-dim);display:block;margin-bottom:6px;">Mode lent (secondes entre deux messages, 0 = désactivé)</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" id="slowModeInput" min="0" max="3600" style="width:90px;padding:8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
+          <button class="btn-primary" style="width:auto;padding:0 16px;margin:0;" id="saveSlowModeBtn">Sauver</button>
+        </div>
+      </div>
     </div>
 
     <div class="settingsGroup">
@@ -517,6 +576,78 @@
       <div class="row-between">
         <span style="font-size:13px;">Envoyer les accusés de lecture ("Vu")</span>
         <label class="switch"><input type="checkbox" id="readReceiptsToggle" checked><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Statut personnalisé</h3>
+      <p class="modalSub" style="margin:0 0 8px;">Une courte phrase affichée sous ton nom (ex: "occupé", "dispo pour jouer").</p>
+      <div class="avatarField">
+        <input type="text" id="statusTextInput" placeholder="ex: occupé" maxlength="40">
+        <button class="btn-primary" style="width:auto;padding:0 16px;margin:0;" id="saveStatusBtn">Sauver</button>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Couleur d'accent de l'appli</h3>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <input type="color" id="accentColorInput" value="#ff5d73" style="width:44px;height:32px;border:none;background:none;cursor:pointer;">
+        <span class="modalSub" style="margin:0;">Change la couleur des boutons et accents partout dans l'appli.</span>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Police du texte</h3>
+      <div class="segRow" id="fontRow">
+        <button data-font="&quot;Segoe UI&quot;, &quot;Helvetica Neue&quot;, Arial, sans-serif" class="active">Défaut</button>
+        <button data-font="Georgia, serif">Serif</button>
+        <button data-font="'Courier New', monospace">Mono</button>
+        <button data-font="'Comic Sans MS', cursive">Fun</button>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Forme des bulles</h3>
+      <div class="segRow" id="bubbleShapeRow">
+        <button data-radius="16px" class="active">Arrondi</button>
+        <button data-radius="6px">Carré</button>
+        <button data-radius="24px">Très rond</button>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Affichage</h3>
+      <div class="row-between">
+        <span style="font-size:13px;">Mode compact</span>
+        <label class="switch"><input type="checkbox" id="compactToggle"><span class="slider"></span></label>
+      </div>
+      <div class="row-between">
+        <span style="font-size:13px;">Regrouper les messages consécutifs</span>
+        <label class="switch"><input type="checkbox" id="groupMsgsToggle" checked><span class="slider"></span></label>
+      </div>
+      <div class="row-between">
+        <span style="font-size:13px;">Format d'heure 24h</span>
+        <label class="switch"><input type="checkbox" id="time24Toggle" checked><span class="slider"></span></label>
+      </div>
+      <div class="row-between">
+        <span style="font-size:13px;">Envoyer avec Entrée (sinon Ctrl+Entrée)</span>
+        <label class="switch"><input type="checkbox" id="enterSendToggle" checked><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Statut en ligne</h3>
+      <div class="row-between">
+        <span style="font-size:13px;">Montrer aux autres quand je suis en ligne</span>
+        <label class="switch"><input type="checkbox" id="onlineStatusToggle" checked><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Économie de données</h3>
+      <div class="row-between">
+        <span style="font-size:13px;">Ne pas charger les images automatiquement</span>
+        <label class="switch"><input type="checkbox" id="dataSaverToggle"><span class="slider"></span></label>
       </div>
     </div>
 
@@ -617,7 +748,16 @@ const GAME_SITES = [
   {name: "Horsepaste", url: "https://www.horsepaste.com/"},
   {name: "neal.fun", url: "https://neal.fun/"},
   {name: "Poki", url: "https://poki.com/"},
-  {name: "Friv 2017", url: "https://friv2017.com/"}
+  {name: "Friv 2017", url: "https://friv2017.com/"},
+  {name: "2048", url: "https://play2048.co/"},
+  {name: "Cookie Clicker", url: "https://orteil.dashnet.org/cookieclicker/"},
+  {name: "Slither.io", url: "https://slither.io/"},
+  {name: "Agar.io", url: "https://agar.io/"},
+  {name: "Diep.io", url: "https://diep.io/"},
+  {name: "1v1.LOL", url: "https://1v1.lol/"},
+  {name: "JKLM.fun", url: "https://jklm.fun/"},
+  {name: "Little Alchemy 2", url: "https://littlealchemy2.com/"},
+  {name: "Lichess", url: "https://lichess.org/"}
 ];
 let pendingImages = [];
 
@@ -632,6 +772,29 @@ let msgChannel = null;
 let convoChannel = null;
 let nicknames = {};      // target_user_id -> surnom perso
 let profilesCache = {};  // user_id -> {email, code, avatar_url, is_admin, username, read_receipts_enabled}
+let onlineUsers = new Set();
+let presenceChannel = null;
+
+function setupPresence(){
+  if (presenceChannel) sb.removeChannel(presenceChannel);
+  presenceChannel = sb.channel("online-users", { config: { presence: { key: me.id } } });
+  presenceChannel
+    .on("presence", { event: "sync" }, ()=>{
+      onlineUsers = new Set(Object.keys(presenceChannel.presenceState()));
+      renderFriends();
+      if (activeConvo) renderMessages(activeConvo);
+    })
+    .subscribe(async (status)=>{
+      if (status === "SUBSCRIBED" && me.show_online_status !== false){
+        await presenceChannel.track({ user_id: me.id });
+      }
+    });
+}
+async function updatePresence(){
+  if (!presenceChannel) return;
+  if (me.show_online_status === false) await presenceChannel.untrack();
+  else await presenceChannel.track({ user_id: me.id });
+}
 
 function cacheProfile(p){
   if (!p) return;
@@ -662,7 +825,8 @@ function rzaAvatarError(img){
   img.replaceWith(span);
 }
 function pfpHtml(userId, sizeClass){
-  return `<div class="pfp ${sizeClass||''}">${avatarImgHtml(userId)}</div>`;
+  const dot = onlineUsers.has(userId) ? `<span class="statusDot"></span>` : "";
+  return `<div class="pfp ${sizeClass||''}" style="position:relative;">${avatarImgHtml(userId)}${dot}</div>`;
 }
 function modoTag(userId){
   const p = profilesCache[userId];
@@ -699,13 +863,52 @@ function fullIdentityFor(profile){
 ============================================================ */
 document.getElementById("tabLogin").onclick = () => switchAuthTab("login");
 document.getElementById("tabSignup").onclick = () => switchAuthTab("signup");
+document.getElementById("tabReset").onclick = () => switchAuthTab("reset");
 function switchAuthTab(which){
   document.getElementById("tabLogin").classList.toggle("active", which==="login");
   document.getElementById("tabSignup").classList.toggle("active", which==="signup");
+  document.getElementById("tabReset").classList.toggle("active", which==="reset");
   document.getElementById("formLogin").style.display = which==="login" ? "block" : "none";
   document.getElementById("formSignup").style.display = which==="signup" ? "block" : "none";
+  document.getElementById("formReset").style.display = which==="reset" ? "block" : "none";
   document.getElementById("authError").textContent = "";
 }
+
+document.getElementById("formReset").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  setAuthError("");
+  const email = document.getElementById("resetEmail").value.trim();
+  document.getElementById("resetBtn").disabled = true;
+  const {error} = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
+  document.getElementById("resetBtn").disabled = false;
+  if (error) return setAuthError(traduireErreur(error.message));
+  setAuthError("");
+  alert("Si ce courriel existe, un lien de réinitialisation vient d'être envoyé.");
+  switchAuthTab("login");
+});
+
+document.getElementById("formNewPassword").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  setAuthError("");
+  const pw = document.getElementById("newPassword").value;
+  document.getElementById("newPasswordBtn").disabled = true;
+  const {error} = await sb.auth.updateUser({ password: pw });
+  document.getElementById("newPasswordBtn").disabled = false;
+  if (error) return setAuthError(traduireErreur(error.message));
+  alert("Mot de passe mis à jour. Tu peux maintenant te reconnecter normalement.");
+  document.getElementById("formNewPassword").style.display = "none";
+  switchAuthTab("login");
+});
+
+sb.auth.onAuthStateChange((event)=>{
+  if (event === "PASSWORD_RECOVERY"){
+    document.getElementById("formLogin").style.display = "none";
+    document.getElementById("formSignup").style.display = "none";
+    document.getElementById("formReset").style.display = "none";
+    document.getElementById("formNewPassword").style.display = "block";
+    document.querySelectorAll(".authTabs button").forEach(b=>b.classList.remove("active"));
+  }
+});
 
 document.getElementById("formLogin").addEventListener("submit", async (e)=>{
   e.preventDefault();
@@ -842,9 +1045,33 @@ async function boot(){
     b.classList.toggle("active", b.dataset.size === savedSize);
   });
 
+  document.getElementById("statusTextInput").value = me.status_text || "";
+  document.getElementById("accentColorInput").value = me.accent_color || "#ff5d73";
+  document.documentElement.style.setProperty("--accent", me.accent_color || "#ff5d73");
+
+  const savedFont = localStorage.getItem("rza_font") || `"Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+  document.documentElement.style.setProperty("--app-font", savedFont);
+  document.querySelectorAll("#fontRow button").forEach(b=> b.classList.toggle("active", b.dataset.font === savedFont));
+
+  const savedRadius = localStorage.getItem("rza_bubbleradius") || "16px";
+  document.documentElement.style.setProperty("--bubble-radius", savedRadius);
+  document.querySelectorAll("#bubbleShapeRow button").forEach(b=> b.classList.toggle("active", b.dataset.radius === savedRadius));
+
+  const compactOn = localStorage.getItem("rza_compact") === "on";
+  document.getElementById("compactToggle").checked = compactOn;
+  document.body.classList.toggle("compact", compactOn);
+
+  document.getElementById("groupMsgsToggle").checked = localStorage.getItem("rza_groupmsgs") !== "off";
+  document.getElementById("time24Toggle").checked = localStorage.getItem("rza_time24") !== "off";
+  document.getElementById("enterSendToggle").checked = localStorage.getItem("rza_entersend") !== "off";
+  document.getElementById("dataSaverToggle").checked = localStorage.getItem("rza_datasaver") === "on";
+  document.getElementById("onlineStatusToggle").checked = me.show_online_status !== false;
+
   const {data: nicksData} = await sb.from("nicknames").select("*").eq("viewer_id", me.id);
   nicknames = {};
   (nicksData||[]).forEach(n=> nicknames[n.target_user_id] = n.nickname);
+
+  setupPresence();
 
   await loadFriends();
   await loadConversations();
@@ -969,7 +1196,9 @@ function traduireRpc(msg){
     contact_bloque: "Message impossible : contact bloqué.",
     impossible_expulser_createur: "Le créateur du groupe ne peut pas être expulsé.",
     deja_membre: "Cette personne est déjà dans le groupe.",
-    pas_membre: "Cette personne n'est pas dans le groupe."
+    pas_membre: "Cette personne n'est pas dans le groupe.",
+    groupe_verrouille: "Ce groupe est verrouillé : seuls les modérateurs peuvent écrire.",
+    mode_lent_actif: "Mode lent activé : attends un peu avant de renvoyer un message."
   };
   for (const k in map) if (msg.includes(k)) return map[k];
   return msg;
@@ -1199,8 +1428,32 @@ function renderMessages(conv){
     el.querySelector(".emptyState")?.remove();
   }
   const lastMineId = [...conv.messages].reverse().find(m=>m.sender_id===me.id)?.id;
-  conv.messages.forEach(m=> el.appendChild(renderMessageRow(conv, m, m.id===lastMineId)));
+  const groupOn = localStorage.getItem("rza_groupmsgs") !== "off";
+  conv.messages.forEach((m,i)=>{
+    const prev = conv.messages[i-1];
+    const grouped = groupOn && prev && prev.sender_id === m.sender_id && !prev.deleted && !m.deleted &&
+      (new Date(m.created_at) - new Date(prev.created_at)) < 3*60*1000;
+    el.appendChild(renderMessageRow(conv, m, m.id===lastMineId, grouped));
+  });
   el.scrollTop = el.scrollHeight;
+}
+
+function buildImgStackHtml(images, w, h){
+  return `<div class="imgStack" style="width:${w}px;height:${h}px;">
+    ${images.map((url,i)=>`<img src="${escapeHtml(url)}" loading="lazy" style="left:${i*16}px;top:${i*12}px;z-index:${i};transform:rotate(${(i%2===0?-1:1)*(2+i*2)}deg);" onclick="window.open(this.src,'_blank')" onerror="this.style.display='none'">`).join("")}
+  </div>`;
+}
+function expandImageStack(el){
+  const images = JSON.parse(el.dataset.images);
+  const w = el.dataset.w, h = el.dataset.h;
+  const div = document.createElement("div");
+  div.innerHTML = buildImgStackHtml(images, w, h);
+  el.replaceWith(div.firstElementChild);
+}
+
+function formatMsgTime(iso){
+  const is24 = localStorage.getItem("rza_time24") !== "off";
+  return new Date(iso).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", hour12: !is24});
 }
 
 function readReceiptText(conv, msg){
@@ -1216,10 +1469,10 @@ function readReceiptText(conv, msg){
   return `Vu par ${readers.length}/${others.length}`;
 }
 
-function renderMessageRow(conv, m, isLastMine){
+function renderMessageRow(conv, m, isLastMine, grouped){
   const mine = m.sender_id === me.id;
   const outer = document.createElement("div");
-  outer.className = "msgRow " + (mine ? "mine" : "theirs");
+  outer.className = "msgRow " + (mine ? "mine" : "theirs") + (grouped ? " grouped" : "");
 
   const senderName = mine ? "Toi" : nameFor(m.sender_id);
   const color = conv.bubbleColors[m.sender_id] || DEFAULT_BUBBLE_COLOR;
@@ -1235,23 +1488,25 @@ function renderMessageRow(conv, m, isLastMine){
   const images = Array.isArray(m.image_urls) ? m.image_urls : [];
   const stackWidth = 92 + Math.max(0, images.length-1) * 16;
   const stackHeight = 92 + Math.max(0, images.length-1) * 12;
-  const imgStackHtml = images.length ? `
-    <div class="imgStack" style="width:${stackWidth}px;height:${stackHeight}px;">
-      ${images.map((url,i)=>`<img src="${url}" loading="lazy" style="left:${i*16}px;top:${i*12}px;z-index:${i};transform:rotate(${(i%2===0?-1:1)*(2+i*2)}deg);" onclick="window.open('${url.replace(/'/g,"\\'")}','_blank')" onerror="this.style.display='none'">`).join("")}
-    </div>` : "";
+  const dataSaver = localStorage.getItem("rza_datasaver") === "on";
+  const imgStackHtml = images.length ? (
+    dataSaver
+      ? `<div class="imgPlaceholder" data-images="${escapeHtml(JSON.stringify(images))}" data-w="${stackWidth}" data-h="${stackHeight}" onclick="expandImageStack(this)">🖼 ${images.length}</div>`
+      : buildImgStackHtml(images, stackWidth, stackHeight)
+  ) : "";
 
   wrap.className = "msgWithAvatar " + (mine ? "mine" : "theirs");
   wrap.innerHTML = `
-    <div class="msgAvatar">${avatarInner}</div>
+    <div class="msgAvatar" style="${grouped ? "visibility:hidden;" : ""}">${avatarInner}</div>
     <div class="msgBody">
-      <div class="msgSender">${escapeHtml(senderName)}${!mine ? modoTag(m.sender_id) : ""}</div>
+      ${grouped ? "" : `<div class="msgSender">${escapeHtml(senderName)}${!mine ? modoTag(m.sender_id) : ""}</div>`}
       ${(!m.deleted && !m.content && images.length) ? "" : `
       <div class="bubble" style="background:${m.deleted ? "#2a2f3d" : color}; color:${m.deleted ? "#7a8196" : "#fff"};">
         ${m.deleted ? "<i>Message supprimé</i>" : escapeHtml(m.content)}
       </div>`}
       ${!m.deleted ? imgStackHtml : ""}
       <div class="msgMeta">
-        <span>${new Date(m.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}${m.edited_at ? " · modifié" : ""}</span>
+        <span>${formatMsgTime(m.created_at)}${m.edited_at ? " · modifié" : ""}</span>
         ${canEdit ? `<button data-act="edit">modifier</button>` : ""}
         ${canDelete ? `<button data-act="del">supprimer</button>` : ""}
       </div>
@@ -1275,7 +1530,12 @@ function renderMessageRow(conv, m, isLastMine){
 }
 
 document.getElementById("sendBtn").onclick = sendMessage;
-document.getElementById("msgInput").addEventListener("keydown", e=>{ if(e.key==="Enter") sendMessage(); });
+document.getElementById("msgInput").addEventListener("keydown", e=>{
+  if (e.key !== "Enter") return;
+  const enterSends = localStorage.getItem("rza_entersend") !== "off";
+  if (enterSends && !e.shiftKey) sendMessage();
+  else if (!enterSends && e.ctrlKey) sendMessage();
+});
 async function sendMessage(){
   if (!activeConvo) return;
   if (activeConvo.blockedBy){
@@ -1458,6 +1718,69 @@ document.getElementById("readReceiptsToggle").onchange = async (e)=>{
   cacheProfile(me);
 };
 
+document.getElementById("saveStatusBtn").onclick = async ()=>{
+  const nv = document.getElementById("statusTextInput").value.trim();
+  me.status_text = nv || null;
+  await sb.from("profiles").update({status_text: me.status_text}).eq("id", me.id);
+  alert("Statut mis à jour.");
+};
+
+document.getElementById("accentColorInput").oninput = (e)=>{
+  document.documentElement.style.setProperty("--accent", e.target.value);
+  localStorage.setItem("rza_accent", e.target.value);
+};
+document.getElementById("accentColorInput").onchange = async (e)=>{
+  await sb.from("profiles").update({accent_color: e.target.value}).eq("id", me.id);
+};
+
+document.querySelectorAll("#fontRow button").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll("#fontRow button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.documentElement.style.setProperty("--app-font", b.dataset.font);
+    localStorage.setItem("rza_font", b.dataset.font);
+  };
+});
+
+document.querySelectorAll("#bubbleShapeRow button").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll("#bubbleShapeRow button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.documentElement.style.setProperty("--bubble-radius", b.dataset.radius);
+    localStorage.setItem("rza_bubbleradius", b.dataset.radius);
+  };
+});
+
+document.getElementById("compactToggle").onchange = (e)=>{
+  document.body.classList.toggle("compact", e.target.checked);
+  localStorage.setItem("rza_compact", e.target.checked ? "on" : "off");
+};
+
+document.getElementById("groupMsgsToggle").onchange = (e)=>{
+  localStorage.setItem("rza_groupmsgs", e.target.checked ? "on" : "off");
+  if (activeConvo) renderMessages(activeConvo);
+};
+
+document.getElementById("time24Toggle").onchange = (e)=>{
+  localStorage.setItem("rza_time24", e.target.checked ? "on" : "off");
+  if (activeConvo) renderMessages(activeConvo);
+};
+
+document.getElementById("enterSendToggle").onchange = (e)=>{
+  localStorage.setItem("rza_entersend", e.target.checked ? "on" : "off");
+};
+
+document.getElementById("onlineStatusToggle").onchange = async (e)=>{
+  me.show_online_status = e.target.checked;
+  await sb.from("profiles").update({show_online_status: me.show_online_status}).eq("id", me.id);
+  updatePresence();
+};
+
+document.getElementById("dataSaverToggle").onchange = (e)=>{
+  localStorage.setItem("rza_datasaver", e.target.checked ? "on" : "off");
+  if (activeConvo) renderMessages(activeConvo);
+};
+
 function playPing(){
   if (localStorage.getItem("rza_sound") === "off") return;
   try{
@@ -1576,6 +1899,19 @@ async function openChatSettingsModal(){
 
   document.getElementById("membersGroup").style.display = conv.type==="group" ? "block" : "none";
   if (conv.type==="group") renderMembersList(conv);
+
+  const canManageGroup = conv.myRole === "creator" || conv.myRole === "moderator";
+  document.getElementById("groupAdvancedGroup").style.display = (conv.type==="group" && canManageGroup) ? "block" : "none";
+  if (conv.type === "group" && canManageGroup){
+    document.getElementById("groupDescInput").value = conv.description || "";
+    document.getElementById("groupIconInput").value = conv.icon_url || "";
+    document.getElementById("lockGroupToggle").checked = !!conv.locked_by_mod;
+    document.getElementById("slowModeInput").value = conv.slow_mode_seconds || 0;
+  }
+
+  const {data: msRow} = await sb.from("member_settings").select("pinned")
+    .eq("conversation_id", conv.id).eq("user_id", me.id).maybeSingle();
+  document.getElementById("pinToggle").checked = !!(msRow && msRow.pinned);
 
   const {data: settings} = await sb.from("member_settings").select("notifications_enabled")
     .eq("conversation_id", conv.id).eq("user_id", me.id).maybeSingle();
@@ -1741,6 +2077,42 @@ document.getElementById("nicknamesAllowedToggle").onchange = async (e)=>{
   await sb.from("conversations").update({nicknames_allowed: e.target.checked}).eq("id", activeConvo.id);
   activeConvo.nicknames_allowed = e.target.checked;
   renderColorRows(activeConvo);
+};
+
+document.getElementById("pinToggle").onchange = async (e)=>{
+  if (!activeConvo) return;
+  await sb.from("member_settings").upsert({
+    conversation_id: activeConvo.id, user_id: me.id, pinned: e.target.checked
+  });
+  await loadConversations();
+};
+
+document.getElementById("saveGroupInfoBtn").onclick = async ()=>{
+  if (!activeConvo) return;
+  const description = document.getElementById("groupDescInput").value.trim();
+  const icon_url = document.getElementById("groupIconInput").value.trim();
+  const {error} = await sb.from("conversations").update({description, icon_url}).eq("id", activeConvo.id);
+  if (error) return alert(error.message);
+  await loadConversations();
+  activeConvo = conversations.find(c=>c.id===activeConvo.id);
+  document.getElementById("chatSub").textContent = description || (activeConvo.type==="group" ? activeConvo.members.length+" membres" : "Message privé");
+  alert("Infos du groupe mises à jour.");
+};
+
+document.getElementById("lockGroupToggle").onchange = async (e)=>{
+  if (!activeConvo) return;
+  await sb.from("conversations").update({locked_by_mod: e.target.checked}).eq("id", activeConvo.id);
+  await loadConversations();
+  activeConvo = conversations.find(c=>c.id===activeConvo.id);
+};
+
+document.getElementById("saveSlowModeBtn").onclick = async ()=>{
+  if (!activeConvo) return;
+  const secs = Math.max(0, parseInt(document.getElementById("slowModeInput").value) || 0);
+  await sb.from("conversations").update({slow_mode_seconds: secs}).eq("id", activeConvo.id);
+  await loadConversations();
+  activeConvo = conversations.find(c=>c.id===activeConvo.id);
+  alert("Mode lent mis à jour.");
 };
 
 document.getElementById("muteToggle").onchange = async (e)=>{
