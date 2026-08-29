@@ -297,6 +297,7 @@
     <form id="formSignup" style="display:none;">
       <div class="field"><label>Courriel</label><input type="email" id="signupEmail" required></div>
       <div class="field"><label>Mot de passe</label><input type="password" id="signupPass" required minlength="6"></div>
+      <div class="field"><label>Nom d'utilisateur (optionnel)</label><input type="text" id="signupUsername" placeholder="ex: Chihuahua" maxlength="24"></div>
       <button class="btn-primary" type="submit" id="signupBtn">Créer le compte</button>
     </form>
 
@@ -325,6 +326,7 @@
       <div class="sidebar-tabs">
         <button id="tabFriends" class="active">Amis</button>
         <button id="tabConvos">Discussions</button>
+        <button id="tabGames">🎮 Jeu</button>
       </div>
       <div class="sidebar-body">
         <div id="panelFriends">
@@ -345,6 +347,11 @@
 
     <div class="chatArea">
       <div id="noConvo" class="noSelection">Sélectionne une discussion</div>
+      <div id="gameWrap" style="display:none;flex:1;flex-direction:column;min-height:0;">
+        <div class="chatHeader"><span class="li-name">🎮 CrazyGames</span></div>
+        <iframe src="https://www.crazygames.com/" style="flex:1;border:none;width:100%;background:#000;"
+          allow="fullscreen; autoplay; gamepad; accelerometer; gyroscope"></iframe>
+      </div>
       <div id="convoWrap" style="display:none;flex:1;display:none;flex-direction:column;min-height:0;">
         <div class="chatHeader">
           <div class="pfp" id="chatPfp">👤</div>
@@ -416,6 +423,10 @@
     <div class="settingsGroup" id="membersGroup" style="display:none;">
       <h3>Membres et modération</h3>
       <div id="membersList"></div>
+      <div class="addFriendRow" id="addByCodeRow" style="margin-top:10px;display:none;">
+        <input id="addByCodeInput" placeholder="RZA-XXXX" maxlength="12">
+        <button id="addByCodeBtn">+</button>
+      </div>
     </div>
   </div>
 </div>
@@ -435,12 +446,27 @@
     </div>
 
     <div class="settingsGroup">
+      <h3>Nom d'utilisateur</h3>
+      <p class="modalSub" style="margin:0 0 8px;">Affiché à la place de ton courriel, sous la forme Nom#Code. Plusieurs personnes peuvent avoir le même nom.</p>
+      <div class="avatarField">
+        <input type="text" id="usernameInput" placeholder="ex: Chihuahua" maxlength="24">
+        <button class="btn-primary" style="width:auto;padding:0 16px;margin:0;" id="saveUsernameBtn">Sauver</button>
+      </div>
+      <p class="modalSub" style="margin:8px 0 0;">Aperçu : <b id="usernamePreview">—</b></p>
+    </div>
+
+    <div class="settingsGroup">
       <h3>Style du favicon / titre non lu</h3>
       <div class="radioGroup">
         <label><input type="radio" name="faviconMode" value="double-l"> Double-L — ajoute des "l" à Pluriportail</label>
         <label><input type="radio" name="faviconMode" value="image-l"> Image-L — change l'icône de l'onglet</label>
         <label><input type="radio" name="faviconMode" value="off"> Désactivé</label>
       </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Déguisement de l'onglet</h3>
+      <div class="radioGroup" id="disguiseRadioGroup"></div>
     </div>
 
     <div class="settingsGroup">
@@ -478,6 +504,10 @@
     </div>
 
     <div class="settingsGroup">
+      <button class="btn-primary" style="background:#3a3f52;" id="clearHistoryBtn">Vider l'historique de mes discussions (pour moi)</button>
+    </div>
+
+    <div class="settingsGroup">
       <button class="btn-primary" style="background:#3a3f52;" id="logoutBtn">Déconnexion</button>
     </div>
   </div>
@@ -508,6 +538,34 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const WALLPAPER_COUNT = 10;
 const DEFAULT_BUBBLE_COLOR = "#3a7bd5";
 
+const DISGUISES = {
+  pluriportail: {
+    base: "assets/base.png", imgL: "assets/base-l.png",
+    escapeImg: "assets/false/false.png",
+    hashUrl: "https://portail.smrc.qc.ca/pluriportail/pfr/MainExterne.srf?P=LoginReq",
+    staticTitle: "Pluriportail", label: "Pluriportail (par défaut)"
+  },
+  gmail: {
+    base: "assets/base-2.png", imgL: "assets/base-2-l.png",
+    escapeImg: "assets/false-2.png",
+    hashUrl: "https://mail.google.com/mail/u/0/#inbox",
+    titleFn: n => n>0 ? `Inbox (${n}) - ${me?.email||""} - Gmail` : `Inbox - ${me?.email||""} - Gmail`,
+    label: "Gmail"
+  },
+  newtab: {
+    base: "assets/base-3.png", imgL: "assets/base-3-l.png",
+    escapeImg: "assets/false-3.png",
+    hashUrl: "https://www.google.com/",
+    staticTitle: "Nouvel onglet", label: "Nouvel onglet"
+  },
+  classroom: {
+    base: "assets/base-4.png", imgL: "assets/base-4-l.png",
+    escapeImg: "assets/false/false.png",
+    hashUrl: "https://portail.smrc.qc.ca/pluriportail/pfr/MainExterne.srf?P=LoginReq",
+    staticTitle: "Accueil - Classroom", label: "Classroom"
+  }
+};
+
 /* ============================================================
    ÉTAT
 ============================================================ */
@@ -518,11 +576,14 @@ let activeConvo = null;  // conversation active complète
 let msgChannel = null;
 let convoChannel = null;
 let nicknames = {};      // target_user_id -> surnom perso
-let profilesCache = {};  // user_id -> {email, code, avatar_url, is_admin}
+let profilesCache = {};  // user_id -> {email, code, avatar_url, is_admin, username, read_receipts_enabled}
 
 function cacheProfile(p){
   if (!p) return;
-  profilesCache[p.id] = {email:p.email, code:p.code, avatar_url:p.avatar_url, is_admin:p.is_admin, read_receipts_enabled:p.read_receipts_enabled};
+  profilesCache[p.id] = {
+    email:p.email, code:p.code, avatar_url:p.avatar_url, is_admin:p.is_admin,
+    username:p.username, read_receipts_enabled:p.read_receipts_enabled
+  };
 }
 function pfpHtml(userId, sizeClass){
   const p = profilesCache[userId];
@@ -533,10 +594,30 @@ function modoTag(userId){
   const p = profilesCache[userId];
   return (p && p.is_admin) ? `<span class="modoTag">Modo</span>` : "";
 }
+
+// Emails @eleve.smrc.qc.ca -> initiales seulement (ex: charles-antoine.ducard -> CAD)
+function isSmrcEmail(email){ return /@eleve\.smrc\.qc\.ca$/i.test(email||""); }
+function initialsFromSmrcEmail(email){
+  const local = (email||"").split("@")[0];
+  return local.split(".").map(part =>
+    part.split(/[-_]/).map(s => (s[0]||"").toUpperCase()).join("")
+  ).join("");
+}
+function handleFor(profile){
+  if (!profile) return "?";
+  if (profile.username) return `${profile.username}#${(profile.code||"").replace("RZA-","")}`;
+  if (isSmrcEmail(profile.email)) return initialsFromSmrcEmail(profile.email);
+  return (profile.email||"?").split("@")[0];
+}
 function nameFor(userId){
   if (nicknames[userId]) return nicknames[userId];
-  const p = profilesCache[userId];
-  return p ? p.email.split("@")[0] : "?";
+  return handleFor(profilesCache[userId]);
+}
+function fullIdentityFor(profile){
+  // pour l'affichage complet (liste d'amis, panneau admin) : handle + email masqué si SMRC
+  if (!profile) return "?";
+  if (isSmrcEmail(profile.email)) return handleFor(profile);
+  return profile.username ? handleFor(profile) : profile.email;
 }
 
 /* ============================================================
@@ -567,10 +648,11 @@ document.getElementById("formSignup").addEventListener("submit", async (e)=>{
   setAuthError("");
   const email = document.getElementById("signupEmail").value.trim();
   const password = document.getElementById("signupPass").value;
+  const username = document.getElementById("signupUsername").value.trim();
   document.getElementById("signupBtn").disabled = true;
   document.getElementById("loadingCode").style.display = "block";
 
-  const {error} = await sb.auth.signUp({email, password});
+  const {data, error} = await sb.auth.signUp({email, password});
   // temps de chargement simulé pour la génération du code RZA
   await new Promise(r => setTimeout(r, 1600));
 
@@ -578,6 +660,16 @@ document.getElementById("formSignup").addEventListener("submit", async (e)=>{
   document.getElementById("signupBtn").disabled = false;
 
   if (error) return setAuthError(traduireErreur(error.message));
+
+  if (username && data.user){
+    let tries = 0, ok = false;
+    while(!ok && tries < 5){
+      const {error: uErr} = await sb.from("profiles").update({username}).eq("id", data.user.id);
+      if (!uErr){ ok = true; break; }
+      await new Promise(r=>setTimeout(r,400)); tries++;
+    }
+  }
+
   await boot();
 });
 
@@ -616,13 +708,27 @@ async function boot(){
 
   document.getElementById("authScreen").style.display = "none";
   document.getElementById("app").style.display = "block";
-  document.getElementById("myEmail").textContent = me.email;
+  document.getElementById("myEmail").textContent = fullIdentityFor(me);
   document.getElementById("myCode").textContent = me.code;
   document.getElementById("globalNotifToggle").checked = me.notifications_enabled;
   document.querySelector(`input[name=faviconMode][value="${me.favicon_mode}"]`).checked = true;
   document.getElementById("avatarUrlInput").value = me.avatar_url || "";
+  document.getElementById("usernameInput").value = me.username || "";
+  document.getElementById("usernamePreview").textContent = handleFor(me);
   document.getElementById("openAdminPanel").style.display = me.is_admin ? "inline-block" : "none";
   document.getElementById("readReceiptsToggle").checked = me.read_receipts_enabled !== false;
+
+  const disguiseGroup = document.getElementById("disguiseRadioGroup");
+  disguiseGroup.innerHTML = Object.keys(DISGUISES).map(key => `
+    <label><input type="radio" name="faviconPreset" value="${key}" ${me.favicon_preset===key?"checked":""}> ${DISGUISES[key].label}</label>
+  `).join("");
+  disguiseGroup.querySelectorAll('input[name=faviconPreset]').forEach(r=>{
+    r.onchange = async ()=>{
+      me.favicon_preset = r.value;
+      await sb.from("profiles").update({favicon_preset: me.favicon_preset}).eq("id", me.id);
+      updateFaviconTitle();
+    };
+  });
 
   const savedSound = localStorage.getItem("rza_sound");
   document.getElementById("soundToggle").checked = savedSound !== "off";
@@ -663,7 +769,7 @@ document.getElementById("addFriendBtn").onclick = async ()=>{
 async function loadFriends(){
   const {data} = await sb
     .from("friends")
-    .select("id, status, requester_id, addressee_id, requester:requester_id(id,email,code,avatar_url,is_admin), addressee:addressee_id(id,email,code,avatar_url,is_admin)")
+    .select("id, status, requester_id, addressee_id, requester:requester_id(id,email,code,avatar_url,is_admin,username), addressee:addressee_id(id,email,code,avatar_url,is_admin,username)")
     .or(`requester_id.eq.${me.id},addressee_id.eq.${me.id}`);
 
   friends = (data||[]).map(f=>{
@@ -696,7 +802,7 @@ function renderFriends(){
       const row = document.createElement("div");
       row.className = "listItem";
       row.innerHTML = `${pfpHtml(f.id)}
-        <div class="li-text"><div class="li-name">${escapeHtml(f.email)} ${modoTag(f.id)}</div>
+        <div class="li-text"><div class="li-name">${escapeHtml(fullIdentityFor(profilesCache[f.id]))} ${modoTag(f.id)}</div>
         <div class="li-sub">${f.code}</div></div>
         <button class="acceptBtn">Accepter</button>`;
       row.querySelector(".acceptBtn").onclick = async (ev)=>{
@@ -717,14 +823,14 @@ function renderFriends(){
   accepted.forEach(f=>{
     const row = document.createElement("div");
     row.className = "listItem";
-    const displayName = nicknames[f.id] || f.email;
+    const displayName = nicknames[f.id] || fullIdentityFor(profilesCache[f.id]);
     row.innerHTML = `${pfpHtml(f.id)}
       <div class="li-text"><div class="li-name">${escapeHtml(displayName)} ${modoTag(f.id)}</div>
       <div class="li-sub">${f.code}</div></div>
       <button class="nickBtn" data-rename>✎</button>`;
     row.querySelector("[data-rename]").onclick = async (ev)=>{
       ev.stopPropagation();
-      const nv = prompt("Surnom pour " + f.email + " (vide pour retirer) :", nicknames[f.id] || "");
+      const nv = prompt("Surnom pour " + fullIdentityFor(profilesCache[f.id]) + " (vide pour retirer) :", nicknames[f.id] || "");
       if (nv === null) return;
       if (nv.trim() === ""){
         await sb.from("nicknames").delete().eq("viewer_id", me.id).eq("target_user_id", f.id);
@@ -756,7 +862,10 @@ function traduireRpc(msg){
     fenetre_modification_expiree: "Le délai de 15 minutes pour modifier est dépassé.",
     message_supprime: "Ce message est supprimé.",
     pas_proprietaire: "Ce n'est pas ton message.",
-    contact_bloque: "Message impossible : contact bloqué."
+    contact_bloque: "Message impossible : contact bloqué.",
+    impossible_expulser_createur: "Le créateur du groupe ne peut pas être expulsé.",
+    deja_membre: "Cette personne est déjà dans le groupe.",
+    pas_membre: "Cette personne n'est pas dans le groupe."
   };
   for (const k in map) if (msg.includes(k)) return map[k];
   return msg;
@@ -767,11 +876,28 @@ function traduireRpc(msg){
 ============================================================ */
 document.getElementById("tabFriends").onclick = ()=> switchSideTab("friends");
 document.getElementById("tabConvos").onclick = ()=> switchSideTab("convos");
+document.getElementById("tabGames").onclick = ()=> switchSideTab("games");
 function switchSideTab(which){
   document.getElementById("tabFriends").classList.toggle("active", which==="friends");
   document.getElementById("tabConvos").classList.toggle("active", which==="convos");
+  document.getElementById("tabGames").classList.toggle("active", which==="games");
   document.getElementById("panelFriends").style.display = which==="friends" ? "block":"none";
   document.getElementById("panelConvos").style.display = which==="convos" ? "block":"none";
+
+  if (which === "games"){
+    document.getElementById("noConvo").style.display = "none";
+    document.getElementById("convoWrap").style.display = "none";
+    document.getElementById("gameWrap").style.display = "flex";
+  } else {
+    document.getElementById("gameWrap").style.display = "none";
+    if (activeConvo){
+      document.getElementById("noConvo").style.display = "none";
+      document.getElementById("convoWrap").style.display = "flex";
+    } else {
+      document.getElementById("noConvo").style.display = "block";
+      document.getElementById("convoWrap").style.display = "none";
+    }
+  }
 }
 
 document.getElementById("newGroupBtn").onclick = async ()=>{
@@ -786,13 +912,10 @@ document.getElementById("newGroupBtn").onclick = async ()=>{
   const targetIds = accepted.filter(f=>codes.includes(f.code)).map(f=>f.id);
   if (!targetIds.length) return alert("Aucun code reconnu.");
 
-  const {data: conv, error} = await sb.from("conversations").insert({type:"group", name, creator_id: me.id}).select().single();
-  if (error) return alert(error.message);
-  const rows = [{conversation_id: conv.id, user_id: me.id, role:"creator"},
-    ...targetIds.map(id=>({conversation_id: conv.id, user_id:id, role:"member"}))];
-  await sb.from("conversation_members").insert(rows);
+  const {data: convId, error} = await sb.rpc("create_group", {p_name: name, p_member_ids: targetIds});
+  if (error) return alert(traduireRpc(error.message));
   await loadConversations();
-  openConversation(conv.id);
+  openConversation(convId);
 };
 
 async function loadConversations(){
@@ -801,7 +924,7 @@ async function loadConversations(){
   if (!ids.length){ conversations = []; renderConvos(); return; }
 
   const {data: convs} = await sb.from("conversations").select("*").in("id", ids);
-  const {data: members} = await sb.from("conversation_members").select("conversation_id,user_id,role,profiles:user_id(id,email,code,avatar_url,is_admin,read_receipts_enabled)").in("conversation_id", ids);
+  const {data: members} = await sb.from("conversation_members").select("conversation_id,user_id,role,profiles:user_id(id,email,code,avatar_url,is_admin,read_receipts_enabled,username)").in("conversation_id", ids);
   const {data: settings} = await sb.from("member_settings").select("*").eq("user_id", me.id).in("conversation_id", ids);
   const {data: reads} = await sb.from("read_state").select("*").eq("user_id", me.id).in("conversation_id", ids);
 
@@ -815,7 +938,7 @@ async function loadConversations(){
     let displayName = c.name;
     if (c.type === "dm"){
       const other = mem.find(m=>m.user_id !== me.id);
-      displayName = other ? (nicknames[other.user_id] || other.profiles.email) : "?";
+      displayName = other ? nameFor(other.user_id) : "?";
     }
     return {
       ...c, members: mem, myRole, displayName,
@@ -1084,23 +1207,35 @@ function updateFaviconTitle(){
   const n = totalUnread();
   const titleEl = document.getElementById("pageTitle");
   const faviconEl = document.getElementById("favicon");
+  const preset = DISGUISES[(me && me.favicon_preset) || "pluriportail"];
 
-  if (!me || !me.notifications_enabled || n===0){
-    titleEl.textContent = "Pluriportail";
-    faviconEl.href = "assets/base.png";
+  if (!me){ titleEl.textContent = preset.staticTitle || preset.titleFn(0); faviconEl.href = preset.base; return; }
+
+  if (!me.notifications_enabled){
+    titleEl.textContent = preset.staticTitle || preset.titleFn(0);
+    faviconEl.href = preset.base;
     return;
   }
 
-  if (me.favicon_mode === "double-l"){
-    titleEl.textContent = "Pluriportai" + "l".repeat(Math.max(1,n));
-    faviconEl.href = "assets/base.png";
-  } else if (me.favicon_mode === "image-l"){
-    titleEl.textContent = "Pluriportail";
-    faviconEl.href = "assets/base-l.png";
-  } else {
-    titleEl.textContent = "Pluriportail";
-    faviconEl.href = "assets/base.png";
+  // Déguisement par défaut : logique historique Double-L / Image-L / off
+  if (me.favicon_preset === "pluriportail" || !me.favicon_preset){
+    if (n === 0){ titleEl.textContent = "Pluriportail"; faviconEl.href = preset.base; return; }
+    if (me.favicon_mode === "double-l"){
+      titleEl.textContent = "Pluriportai" + "l".repeat(Math.max(1,n));
+      faviconEl.href = preset.base;
+    } else if (me.favicon_mode === "image-l"){
+      titleEl.textContent = "Pluriportail";
+      faviconEl.href = preset.imgL;
+    } else {
+      titleEl.textContent = "Pluriportail";
+      faviconEl.href = preset.base;
+    }
+    return;
   }
+
+  // Autres déguisements : titre au format du préset, favicon "-l" si non-lu et pas désactivé
+  titleEl.textContent = preset.titleFn ? preset.titleFn(n) : preset.staticTitle;
+  faviconEl.href = (n > 0 && me.favicon_mode !== "off") ? preset.imgL : preset.base;
 }
 
 /* ============================================================
@@ -1121,6 +1256,29 @@ document.querySelectorAll('input[name=faviconMode]').forEach(r=>{
     updateFaviconTitle();
   };
 });
+document.getElementById("saveUsernameBtn").onclick = async ()=>{
+  const nv = document.getElementById("usernameInput").value.trim();
+  me.username = nv || null;
+  const {error} = await sb.from("profiles").update({username: me.username}).eq("id", me.id);
+  if (error) return alert(error.message);
+  cacheProfile(me);
+  document.getElementById("usernamePreview").textContent = handleFor(me);
+  document.getElementById("myEmail").textContent = fullIdentityFor(me);
+  renderFriends(); renderConvos();
+  if (activeConvo) renderMessages(activeConvo);
+  alert("Nom d'utilisateur mis à jour.");
+};
+
+document.getElementById("clearHistoryBtn").onclick = async ()=>{
+  if (!confirm("Vider tout ton historique de discussions ? (seulement pour toi, les autres gardent les messages)")) return;
+  for (const c of conversations){
+    await sb.from("read_state").upsert({conversation_id: c.id, user_id: me.id, last_read_at: new Date().toISOString()});
+  }
+  await loadConversations();
+  if (activeConvo){ document.getElementById("noConvo").style.display="block"; document.getElementById("convoWrap").style.display="none"; activeConvo=null; }
+  alert("Historique marqué comme lu. (Les messages restent visibles si tu rouvres une discussion — pour un vrai effacement, demande la suppression du compte à un modérateur.)");
+};
+
 document.getElementById("logoutBtn").onclick = async ()=>{ await sb.auth.signOut(); };
 
 document.getElementById("soundToggle").onchange = (e)=>{
@@ -1280,12 +1438,11 @@ function renderPreview(conv){
     const color = conv.bubbleColors[m.user_id] || DEFAULT_BUBBLE_COLOR;
     bubble.style.background = color;
     bubble.style.color = "#fff";
-    bubble.textContent = mine ? "Toi: aperçu du message" : `${shortName(m)}: aperçu du message`;
+    bubble.textContent = mine ? "Toi: aperçu du message" : `${nameFor(m.user_id)}: aperçu du message`;
     box.appendChild(bubble);
   });
 }
 
-function shortName(m){ return (m.profiles.email||"?").split("@")[0]; }
 
 function renderColorRows(conv){
   const el = document.getElementById("colorRows");
@@ -1298,7 +1455,7 @@ function renderColorRows(conv){
     row.className = "customRow";
     const isMe = m.user_id === me.id;
     row.innerHTML = `${pfpHtml(m.user_id)}
-      <span style="font-size:12px;min-width:60px;">${isMe ? "Toi" : escapeHtml(shortName(m))}${modoTag(m.user_id)}</span>
+      <span style="font-size:12px;min-width:60px;">${isMe ? "Toi" : escapeHtml(nameFor(m.user_id))}${modoTag(m.user_id)}</span>
       ${!isMe ? `<input type="text" placeholder="surnom" value="${escapeHtml(nicknames[m.user_id]||"")}" ${nicknamesLocked?"disabled":""}>` : `<span style="flex:1;"></span>`}
       <input type="color" value="${conv.bubbleColors[m.user_id]||DEFAULT_BUBBLE_COLOR}">`;
 
@@ -1406,7 +1563,7 @@ async function renderWallRequests(conv){
     const row = document.createElement("div");
     row.className = "reqRow";
     row.innerHTML = `<div class="wallThumb" style="width:36px;height:36px;background-image:url(assets/img/wallpaper/wallpaper${r.wallpaper_index}.png)"></div>
-      <span style="flex:1;">${escapeHtml(r.profiles.email)} propose le fond #${r.wallpaper_index}</span>
+      <span style="flex:1;">${escapeHtml(nameFor(r.requested_by))} propose le fond #${r.wallpaper_index}</span>
       <button data-a="ok" style="background:var(--ok);color:#04241a;">Accepter</button>
       <button data-a="no" style="background:#3a3f52;color:#fff;">Refuser</button>`;
     row.querySelector('[data-a="ok"]').onclick = async ()=>{
@@ -1444,8 +1601,8 @@ function renderMembersList(conv){
     const row = document.createElement("div");
     row.className = "memberRow";
     const roleLabel = m.role==="creator" ? "créateur" : m.role==="moderator" ? "modérateur" : "membre";
-    row.innerHTML = `<div class="pfp">${m.user_id===me.id ? "🙂" : "👤"}</div>
-      <span style="font-size:13px;">${m.user_id===me.id ? "Toi" : escapeHtml(shortName(m))}</span>
+    row.innerHTML = `${pfpHtml(m.user_id)}
+      <span style="font-size:13px;">${m.user_id===me.id ? "Toi" : escapeHtml(nameFor(m.user_id))}${modoTag(m.user_id)}</span>
       <span class="roleTag ${m.role}">${roleLabel}</span>`;
     if (iCanPromote && m.role === "member"){
       const btn = document.createElement("button");
@@ -1460,9 +1617,45 @@ function renderMembersList(conv){
       };
       row.appendChild(btn);
     }
+    if (iCanPromote && m.role !== "creator" && m.user_id !== me.id){
+      const kickBtn = document.createElement("button");
+      kickBtn.className = "promoteBtn";
+      kickBtn.style.color = "var(--accent)";
+      kickBtn.style.borderColor = "var(--accent)";
+      kickBtn.textContent = "Expulser";
+      kickBtn.onclick = async ()=>{
+        if (!confirm(`Expulser ${nameFor(m.user_id)} du groupe ?`)) return;
+        const {error} = await sb.rpc("group_kick_member", {p_conversation_id: conv.id, p_target: m.user_id});
+        if (error) return alert(traduireRpc(error.message));
+        await loadConversations();
+        activeConvo = conversations.find(c=>c.id===conv.id);
+        renderMembersList(activeConvo);
+      };
+      row.appendChild(kickBtn);
+    }
     el.appendChild(row);
   });
+
+  const addRow = document.getElementById("addByCodeRow");
+  addRow.style.display = iCanPromote ? "flex" : "none";
 }
+
+document.getElementById("addByCodeBtn").onclick = async ()=>{
+  if (!activeConvo) return;
+  const code = document.getElementById("addByCodeInput").value.trim().toUpperCase();
+  if (!code) return;
+  const {data, error} = await sb.rpc("group_add_by_code", {p_conversation_id: activeConvo.id, p_code: code});
+  if (error) return alert(traduireRpc(error.message));
+  document.getElementById("addByCodeInput").value = "";
+  if (data === "ajoute"){
+    await loadConversations();
+    activeConvo = conversations.find(c=>c.id===activeConvo.id);
+    renderMembersList(activeConvo);
+    alert("Membre ajouté au groupe.");
+  } else {
+    alert("Cette personne n'est pas encore ton amie : une demande d'ami a été envoyée. Une fois acceptée, ajoute-la de nouveau au groupe.");
+  }
+};
 
 /* ============================================================
    UTIL
@@ -1480,25 +1673,23 @@ function escapeHtml(s){
 })();
 
 /* ============================================================
-   RACCOURCIS CLAVIER
+   RACCOURCIS CLAVIER (dépendent du déguisement choisi)
 ============================================================ */
 document.addEventListener("keydown", (e) => {
+  const preset = DISGUISES[(me && me.favicon_preset) || "pluriportail"];
 
-  // Échap → charge l'image
   if (e.key === "Escape") {
     e.preventDefault();
-    window.location.href = "assets/false/false.png";
+    window.location.href = preset.escapeImg;
     return;
   }
 
-  // # → ouvre le portail
   if (e.key === "#") {
     e.preventDefault();
-    window.location.href =
-      "https://portail.smrc.qc.ca/pluriportail/pfr/MainExterne.srf?P=LoginReq";
+    window.location.href = preset.hashUrl;
   }
-
 });
+
 
 </script>
 </body>
