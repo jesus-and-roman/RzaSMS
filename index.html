@@ -312,6 +312,49 @@
     border-radius:8px;padding:6px 10px;font-size:12px;
   }
   .siteBtn:hover, .siteBtn.active{color:var(--text);border-color:var(--accent-2);}
+
+  body.light{
+    --bg:#f4f5f8; --panel:#ffffff; --panel-2:#eef0f5; --border:#dde1ea;
+    --text:#1c1f2a; --text-dim:#5b6172;
+  }
+  #messagesEl{position:relative;}
+  #messagesEl::before{
+    content:"";position:absolute;inset:0;background:rgba(0,0,0,var(--wallpaper-dim,0));
+    pointer-events:none;z-index:0;
+  }
+  .msgRow{position:relative;z-index:1;}
+  .reactionsRow{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+  .reactionPill{
+    background:var(--panel-2);border:1px solid var(--border);border-radius:12px;
+    padding:1px 7px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:3px;
+  }
+  .reactionPill.mine{border-color:var(--accent-2);}
+  .addReactionBtn{background:transparent;border:none;color:var(--text-dim);font-size:12px;cursor:pointer;padding:0 4px;}
+  .reactionPicker{
+    display:none;position:absolute;background:var(--panel);border:1px solid var(--border);
+    border-radius:10px;padding:6px;gap:4px;z-index:60;box-shadow:0 4px 14px rgba(0,0,0,.4);
+  }
+  .reactionPicker.show{display:flex;}
+  .reactionPicker button{background:none;border:none;font-size:16px;cursor:pointer;padding:2px;}
+  .pinnedBanner{
+    background:var(--panel-2);border-bottom:1px solid var(--border);padding:8px 16px;
+    font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:10px;
+  }
+  .pinnedBanner b{color:var(--text);font-weight:600;}
+  .pinnedBanner button{margin-left:auto;background:transparent;border:none;color:var(--text-dim);font-size:12px;text-decoration:underline;}
+  .searchBar{display:none;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--panel);gap:8px;align-items:center;}
+  .searchBar.show{display:flex;}
+  .searchBar input{flex:1;padding:7px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);}
+  .msgRow.searchHidden{display:none;}
+  .quickReplyBtn{position:relative;}
+  .quickReplyMenu{
+    display:none;position:absolute;bottom:44px;left:0;background:var(--panel);border:1px solid var(--border);
+    border-radius:10px;padding:6px;min-width:200px;max-height:220px;overflow-y:auto;z-index:60;
+    box-shadow:0 4px 14px rgba(0,0,0,.4);
+  }
+  .quickReplyMenu.show{display:block;}
+  .quickReplyMenu .qrItem{padding:7px 8px;font-size:12px;border-radius:6px;cursor:pointer;}
+  .quickReplyMenu .qrItem:hover{background:var(--panel-2);}
 </style>
 </head>
 <body>
@@ -401,9 +444,10 @@
       <div id="gameWrap" style="display:none;flex:1;flex-direction:column;min-height:0;">
         <div class="chatHeader" style="flex-wrap:wrap;row-gap:8px;">
           <span class="li-name">🎮 Jeu</span>
-          <div id="gameSiteButtons" style="display:flex;gap:6px;flex-wrap:wrap;margin-left:10px;"></div>
+          <input id="gameSearchInput" placeholder="Chercher un jeu..." style="margin-left:10px;padding:7px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;width:160px;">
+          <button class="siteBtn" id="backToGameListBtn" style="display:none;">← Liste des jeux</button>
         </div>
-        <div id="gamePlaceholder" class="noSelection">Choisis un jeu ci-dessus. (Certains sites bloquent l'affichage en iframe — si l'écran reste vide, essaie un autre jeu.)</div>
+        <div id="gameSiteButtons" style="display:block;overflow-y:auto;padding:14px 18px;flex:1;"></div>
         <iframe id="gameFrame" style="display:none;flex:1;border:none;width:100%;background:#000;"
           allow="fullscreen; autoplay; gamepad; accelerometer; gyroscope"></iframe>
       </div>
@@ -414,12 +458,22 @@
             <div class="li-name" id="chatName"></div>
             <div class="li-sub" id="chatSub"></div>
           </div>
+          <button class="gearBtn" id="openSearchBar" title="Chercher dans la discussion">🔍</button>
           <button class="gearBtn" id="openChatSettings">⚙</button>
         </div>
+        <div class="searchBar" id="searchBar">
+          <input id="searchInput" placeholder="Chercher un mot...">
+          <span class="modalSub" id="searchCount"></span>
+          <button class="modal-close" id="closeSearchBar" style="float:none;">✕</button>
+        </div>
+        <div id="pinnedBannerWrap"></div>
         <div class="messages" id="messagesEl"></div>
-        <div class="composer" style="flex-direction:column;gap:8px;align-items:stretch;">
+        <div class="composer" style="flex-direction:column;gap:8px;align-items:stretch;position:relative;">
           <div id="imgChips" style="display:none;gap:8px;flex-wrap:wrap;"></div>
-          <div style="display:flex;gap:10px;">
+          <div style="display:flex;gap:10px;position:relative;">
+            <button class="gearBtn quickReplyBtn" id="quickReplyBtn" title="Réponses rapides">⚡
+              <div class="quickReplyMenu" id="quickReplyMenu"></div>
+            </button>
             <button class="gearBtn" id="attachImgBtn" title="Ajouter une image (lien)">🖼</button>
             <input id="msgInput" placeholder="Écris un message...">
             <button id="sendBtn">Envoyer</button>
@@ -452,6 +506,15 @@
       </div>
       <div class="wallGrid" id="wallGrid"></div>
       <div id="wallHint" style="font-size:11px;color:var(--text-dim);"></div>
+      <div style="margin-top:12px;">
+        <label style="font-size:12px;color:var(--text-dim);display:block;margin-bottom:6px;">Assombrir le fond (lisibilité)</label>
+        <input type="range" id="wallDimSlider" min="0" max="90" value="0" style="width:100%;">
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Discussion</h3>
+      <button class="btn-primary" style="background:#3a3f52;" id="exportConvoBtn">Exporter en .txt</button>
     </div>
 
     <div class="settingsGroup">
@@ -569,6 +632,52 @@
         <button data-size="14px" class="active">Normal</button>
         <button data-size="17px">Grand</button>
       </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Thème</h3>
+      <div class="segRow" id="themeRow">
+        <button data-theme="dark" class="active">Sombre</button>
+        <button data-theme="light">Clair</button>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Taille de l'interface</h3>
+      <div class="segRow" id="uiScaleRow">
+        <button data-scale="90%">Petit</button>
+        <button data-scale="100%" class="active">Normal</button>
+        <button data-scale="115%">Grand</button>
+      </div>
+      <p class="modalSub" style="margin:6px 0 0;">(Effet limité sur Firefox)</p>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Son de notification</h3>
+      <select id="soundToneSelect" style="width:100%;padding:9px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
+        <option value="ping">Ping classique</option>
+        <option value="pop">Pop</option>
+        <option value="chime">Carillon</option>
+        <option value="blip">Blip aigu</option>
+      </select>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Ne pas déranger</h3>
+      <p class="modalSub" style="margin:0 0 8px;">Coupe le son et les notifications visuelles pendant cette plage horaire (heure locale).</p>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <input type="number" id="dndStart" min="0" max="23" placeholder="Début (0-23)" style="width:100%;padding:8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
+        <span class="modalSub">à</span>
+        <input type="number" id="dndEnd" min="0" max="23" placeholder="Fin (0-23)" style="width:100%;padding:8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);">
+        <button class="btn-primary" style="width:auto;padding:0 14px;margin:0;" id="saveDndBtn">OK</button>
+      </div>
+    </div>
+
+    <div class="settingsGroup">
+      <h3>Réponses rapides</h3>
+      <p class="modalSub" style="margin:0 0 8px;">Des textes prêts à envoyer, accessibles avec le bouton ⚡ à côté du champ de message.</p>
+      <div id="quickRepliesList" style="margin-bottom:8px;"></div>
+      <button class="newGroupBtn" id="addQuickReplyBtn">+ Ajouter une réponse rapide</button>
     </div>
 
     <div class="settingsGroup">
@@ -740,24 +849,85 @@ function defaultPresetFor(email){
 }
 
 const GAME_SITES = [
-  {name: "Garticphone", url: "https://garticphone.com/"},
-  {name: "Skribbl.io", url: "https://skribbl.io/"},
-  {name: "Colonist.io", url: "https://colonist.io/"},
-  {name: "Cardzmania", url: "https://www.cardzmania.com/"},
-  {name: "Krunker.io", url: "https://krunker.io/"},
-  {name: "Horsepaste", url: "https://www.horsepaste.com/"},
-  {name: "neal.fun", url: "https://neal.fun/"},
-  {name: "Poki", url: "https://poki.com/"},
-  {name: "Friv 2017", url: "https://friv2017.com/"},
-  {name: "2048", url: "https://play2048.co/"},
-  {name: "Cookie Clicker", url: "https://orteil.dashnet.org/cookieclicker/"},
-  {name: "Slither.io", url: "https://slither.io/"},
-  {name: "Agar.io", url: "https://agar.io/"},
-  {name: "Diep.io", url: "https://diep.io/"},
-  {name: "1v1.LOL", url: "https://1v1.lol/"},
-  {name: "JKLM.fun", url: "https://jklm.fun/"},
-  {name: "Little Alchemy 2", url: "https://littlealchemy2.com/"},
-  {name: "Lichess", url: "https://lichess.org/"}
+  // .io / multijoueur
+  {cat:".io", name: "Slither.io", url: "https://slither.io/"},
+  {cat:".io", name: "Agar.io", url: "https://agar.io/"},
+  {cat:".io", name: "Diep.io", url: "https://diep.io/"},
+  {cat:".io", name: "Krunker.io", url: "https://krunker.io/"},
+  {cat:".io", name: "Paper.io 2", url: "https://paper-io.com/"},
+  {cat:".io", name: "Hole.io", url: "https://hole-io.com/"},
+  {cat:".io", name: "Wormax.io", url: "https://wormax.io/"},
+  {cat:".io", name: "Zombs.io", url: "https://zombs.io/"},
+  {cat:".io", name: "Mope.io", url: "https://mope.io/"},
+  {cat:".io", name: "Venge.io", url: "https://venge.io/"},
+  {cat:".io", name: "Shellshock.io", url: "https://shellshock.io/"},
+  {cat:".io", name: "Smash Karts", url: "https://smashkarts.io/"},
+  {cat:".io", name: "Bonk.io", url: "https://bonk.io/"},
+  {cat:".io", name: "Survev.io", url: "https://survev.io/"},
+  {cat:".io", name: "Starve.io", url: "https://starve.io/"},
+  {cat:".io", name: "Evowars.io", url: "https://evowars.io/"},
+  {cat:".io", name: "Gats.io", url: "https://gats.io/"},
+  {cat:".io", name: "Deeeep.io", url: "https://deeeep.io/"},
+  {cat:".io", name: "Rocket Bot Royale", url: "https://rocketbotroyale.io/"},
+  {cat:".io", name: "1v1.LOL", url: "https://1v1.lol/"},
+
+  // Puzzle & casual
+  {cat:"Puzzle", name: "2048", url: "https://play2048.co/"},
+  {cat:"Puzzle", name: "Cookie Clicker", url: "https://orteil.dashnet.org/cookieclicker/"},
+  {cat:"Puzzle", name: "Little Alchemy 2", url: "https://littlealchemy2.com/"},
+  {cat:"Puzzle", name: "Minesweeper Online", url: "https://minesweeperonline.com/"},
+  {cat:"Puzzle", name: "Sudoku.com", url: "https://sudoku.com/"},
+  {cat:"Puzzle", name: "Solitaired", url: "https://www.solitaired.com/"},
+  {cat:"Puzzle", name: "Tetris", url: "https://tetris.com/play-tetris"},
+  {cat:"Puzzle", name: "Flappy Bird", url: "https://flappybird.io/"},
+  {cat:"Puzzle", name: "Nerdle", url: "https://nerdlegame.com/"},
+  {cat:"Puzzle", name: "GeoGuessr", url: "https://www.geoguessr.com/"},
+
+  // Dessin & fête (multijoueur social)
+  {cat:"Dessin & fête", name: "Garticphone", url: "https://garticphone.com/"},
+  {cat:"Dessin & fête", name: "Skribbl.io", url: "https://skribbl.io/"},
+  {cat:"Dessin & fête", name: "JKLM.fun", url: "https://jklm.fun/"},
+  {cat:"Dessin & fête", name: "Gartic.io", url: "https://gartic.io/"},
+  {cat:"Dessin & fête", name: "Drawaria", url: "https://drawaria.online/"},
+  {cat:"Dessin & fête", name: "Horsepaste (Codenames)", url: "https://www.horsepaste.com/"},
+
+  // Cartes & plateau
+  {cat:"Cartes & plateau", name: "Colonist.io", url: "https://colonist.io/"},
+  {cat:"Cartes & plateau", name: "Cardzmania", url: "https://www.cardzmania.com/"},
+  {cat:"Cartes & plateau", name: "Chess.com", url: "https://www.chess.com/play/computer"},
+  {cat:"Cartes & plateau", name: "Lichess", url: "https://lichess.org/"},
+  {cat:"Cartes & plateau", name: "Chess24", url: "https://chess24.com/en/play"},
+  {cat:"Cartes & plateau", name: "Backgammon Galaxy", url: "https://www.backgammongalaxy.com/"},
+
+  // Rétro & arcade / portails
+  {cat:"Rétro & portails", name: "Internet Arcade", url: "https://archive.org/details/internetarcade"},
+  {cat:"Rétro & portails", name: "Classic Reload", url: "https://classicreload.com/"},
+  {cat:"Rétro & portails", name: "Tanki Online", url: "https://tankionline.com/"},
+  {cat:"Rétro & portails", name: "Pac-Man (Google)", url: "https://www.google.com/logos/2010/pacman10-i.html"},
+  {cat:"Rétro & portails", name: "Miniclip", url: "https://www.miniclip.com/"},
+  {cat:"Rétro & portails", name: "Addicting Games", url: "https://www.addictinggames.com/"},
+  {cat:"Rétro & portails", name: "Kongregate", url: "https://www.kongregate.com/"},
+  {cat:"Rétro & portails", name: "Armor Games", url: "https://armorgames.com/"},
+  {cat:"Rétro & portails", name: "Newgrounds", url: "https://www.newgrounds.com/"},
+  {cat:"Rétro & portails", name: "Y8", url: "https://www.y8.com/"},
+  {cat:"Rétro & portails", name: "Silvergames", url: "https://www.silvergames.com/en/"},
+  {cat:"Rétro & portails", name: "CoolMathGames", url: "https://www.coolmathgames.com/"},
+  {cat:"Rétro & portails", name: "GameJolt", url: "https://gamejolt.com/"},
+  {cat:"Rétro & portails", name: "Itch.io (web)", url: "https://itch.io/games/free/platform-web"},
+  {cat:"Rétro & portails", name: "Poki", url: "https://poki.com/"},
+  {cat:"Rétro & portails", name: "Friv 2017", url: "https://friv2017.com/"},
+  {cat:"Rétro & portails", name: "CrazyGames", url: "https://www.crazygames.com/"},
+
+  // Créatif & sandbox
+  {cat:"Créatif & sandbox", name: "neal.fun", url: "https://neal.fun/"},
+  {cat:"Créatif & sandbox", name: "Sandspiel", url: "https://sandspiel.club/"},
+  {cat:"Créatif & sandbox", name: "Incredibox", url: "https://www.incredibox.com/"},
+  {cat:"Créatif & sandbox", name: "A Dark Room", url: "https://adarkroom.doublespeakgames.com/"},
+
+  // Quiz & culture
+  {cat:"Quiz & culture", name: "Sporcle", url: "https://www.sporcle.com/"},
+  {cat:"Quiz & culture", name: "JetPunk", url: "https://www.jetpunk.com/"},
+  {cat:"Quiz & culture", name: "Kahoot", url: "https://kahoot.it/"}
 ];
 let pendingImages = [];
 
@@ -1067,6 +1237,20 @@ async function boot(){
   document.getElementById("dataSaverToggle").checked = localStorage.getItem("rza_datasaver") === "on";
   document.getElementById("onlineStatusToggle").checked = me.show_online_status !== false;
 
+  const savedTheme = localStorage.getItem("rza_theme") || "dark";
+  document.body.classList.toggle("light", savedTheme === "light");
+  document.querySelectorAll("#themeRow button").forEach(b=> b.classList.toggle("active", b.dataset.theme===savedTheme));
+
+  const savedScale = localStorage.getItem("rza_uiscale") || "100%";
+  document.documentElement.style.zoom = savedScale;
+  document.querySelectorAll("#uiScaleRow button").forEach(b=> b.classList.toggle("active", b.dataset.scale===savedScale));
+
+  document.getElementById("soundToneSelect").value = localStorage.getItem("rza_soundtone") || "ping";
+  document.getElementById("dndStart").value = me.dnd_start_hour ?? "";
+  document.getElementById("dndEnd").value = me.dnd_end_hour ?? "";
+
+  renderQuickReplies();
+
   const {data: nicksData} = await sb.from("nicknames").select("*").eq("viewer_id", me.id);
   nicknames = {};
   (nicksData||[]).forEach(n=> nicknames[n.target_user_id] = n.nickname);
@@ -1209,26 +1393,60 @@ function traduireRpc(msg){
 ============================================================ */
 document.getElementById("tabFriends").onclick = ()=> switchSideTab("friends");
 document.getElementById("tabConvos").onclick = ()=> switchSideTab("convos");
-document.getElementById("tabGames").onclick = ()=>{ renderGameButtons(); switchSideTab("games"); };
+document.getElementById("tabGames").onclick = ()=>{ renderGameList(); switchSideTab("games"); };
 
-function renderGameButtons(){
+function renderGameList(filter){
   const el = document.getElementById("gameSiteButtons");
-  if (el.childElementCount) return;
+  const q = (filter||"").trim().toLowerCase();
+  const cats = {};
   GAME_SITES.forEach(site=>{
-    const btn = document.createElement("button");
-    btn.className = "siteBtn";
-    btn.textContent = site.name;
-    btn.onclick = ()=>{
-      document.querySelectorAll(".siteBtn").forEach(b=>b.classList.remove("active"));
-      btn.classList.add("active");
-      const frame = document.getElementById("gameFrame");
-      frame.src = site.url;
-      frame.style.display = "block";
-      document.getElementById("gamePlaceholder").style.display = "none";
-    };
-    el.appendChild(btn);
+    if (q && !site.name.toLowerCase().includes(q)) return;
+    (cats[site.cat] = cats[site.cat] || []).push(site);
+  });
+  el.innerHTML = "";
+  const catNames = Object.keys(cats);
+  if (!catNames.length){
+    el.innerHTML = `<div class="li-sub">Aucun jeu ne correspond à "${escapeHtml(filter)}".</div>`;
+    return;
+  }
+  catNames.forEach(cat=>{
+    const h = document.createElement("div");
+    h.className = "sectionLabel";
+    h.style.marginTop = "16px";
+    h.textContent = cat;
+    el.appendChild(h);
+    const grid = document.createElement("div");
+    grid.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
+    cats[cat].forEach(site=>{
+      const btn = document.createElement("button");
+      btn.className = "siteBtn";
+      btn.textContent = site.name;
+      btn.onclick = ()=> loadGame(site);
+      grid.appendChild(btn);
+    });
+    el.appendChild(grid);
   });
 }
+
+function loadGame(site){
+  const frame = document.getElementById("gameFrame");
+  frame.src = site.url;
+  frame.style.display = "block";
+  document.getElementById("gameSiteButtons").style.display = "none";
+  document.getElementById("gameSearchInput").style.display = "none";
+  document.getElementById("backToGameListBtn").style.display = "inline-block";
+}
+
+document.getElementById("backToGameListBtn").onclick = ()=>{
+  document.getElementById("gameFrame").style.display = "none";
+  document.getElementById("gameFrame").src = "about:blank";
+  document.getElementById("gameSiteButtons").style.display = "block";
+  document.getElementById("gameSearchInput").style.display = "inline-block";
+  document.getElementById("backToGameListBtn").style.display = "none";
+};
+
+document.getElementById("gameSearchInput").addEventListener("input", (e)=> renderGameList(e.target.value));
+
 function switchSideTab(which){
   document.getElementById("tabFriends").classList.toggle("active", which==="friends");
   document.getElementById("tabConvos").classList.toggle("active", which==="convos");
@@ -1314,13 +1532,23 @@ function renderConvos(){
   conversations.slice().sort((a,b)=> (b.lastMsgAt||"").localeCompare(a.lastMsgAt||"")).forEach(c=>{
     const row = document.createElement("div");
     row.className = "listItem" + (activeConvo && activeConvo.id===c.id ? " active" : "");
-    row.innerHTML = `<div class="pfp">${c.type==="group" ? "👥" : "👤"}</div>
+    row.innerHTML = `<div class="pfp">${convIconHtml(c)}</div>
       <div class="li-text"><div class="li-name">${escapeHtml(c.displayName)}</div>
       <div class="li-sub">${c.type==="group" ? c.members.length+" membres" : "Message privé"}</div></div>
       ${c.unread ? `<span class="badge">${c.unread}</span>` : ""}`;
     row.onclick = ()=> openConversation(c.id);
     el.appendChild(row);
   });
+}
+
+function convIconHtml(c){
+  if (c.type === "group"){
+    return c.icon_url
+      ? `<img src="${escapeHtml(c.icon_url)}" onerror="this.replaceWith(document.createTextNode('👥'))">`
+      : "👥";
+  }
+  const other = c.members ? c.members.find(m=>m.user_id!==me.id) : null;
+  return other ? avatarImgHtml(other.user_id) : "👤";
 }
 
 async function refreshUnreadCounts(){
@@ -1350,20 +1578,20 @@ async function openConversation(convoId){
   wrap.style.display = "flex";
 
   const chatPfpEl = document.getElementById("chatPfp");
-  if (conv.type === "group"){ chatPfpEl.innerHTML = "👥"; }
-  else {
-    const other = conv.members.find(m=>m.user_id!==me.id);
-    chatPfpEl.innerHTML = other ? avatarImgHtml(other.user_id) : "👤";
-  }
+  chatPfpEl.innerHTML = convIconHtml(conv);
   document.getElementById("chatName").innerHTML = escapeHtml(conv.displayName) +
     (conv.type==="dm" ? modoTag(conv.members.find(m=>m.user_id!==me.id)?.user_id) : "");
-  document.getElementById("chatSub").textContent = conv.type==="group" ? conv.members.length+" membres" : "Message privé";
+  document.getElementById("chatSub").textContent = conv.description || (conv.type==="group" ? conv.members.length+" membres" : "Message privé");
+  document.getElementById("searchBar").classList.remove("show");
+  document.getElementById("searchInput").value = "";
+  document.getElementById("searchCount").textContent = "";
 
   await loadBubbleColors(conv);
   await applyWallpaper(conv);
   await loadMessages(conv);
   await loadReadState(conv);
   await loadBlockInfo(conv);
+  renderPinnedBanner(conv);
   renderConvos();
 
   await sb.from("read_state").upsert({
@@ -1401,17 +1629,80 @@ async function loadBubbleColors(conv){
 }
 
 async function applyWallpaper(conv){
-  const {data: settings} = await sb.from("member_settings").select("wallpaper_private")
+  const {data: settings} = await sb.from("member_settings").select("wallpaper_private, wallpaper_dim")
     .eq("conversation_id", conv.id).eq("user_id", me.id).maybeSingle();
   const idx = (settings && settings.wallpaper_private) || conv.wallpaper_public;
   const msgsEl = document.getElementById("messagesEl");
   msgsEl.style.backgroundImage = idx ? `url(assets/img/wallpaper/wallpaper${idx}.png)` : "none";
+  const dim = (settings && settings.wallpaper_dim) || 0;
+  msgsEl.style.setProperty("--wallpaper-dim", (dim/100).toFixed(2));
+  document.getElementById("wallDimSlider").value = dim;
 }
+
+document.getElementById("wallDimSlider").oninput = (e)=>{
+  document.getElementById("messagesEl").style.setProperty("--wallpaper-dim", (e.target.value/100).toFixed(2));
+};
+document.getElementById("wallDimSlider").onchange = async (e)=>{
+  if (!activeConvo) return;
+  await sb.from("member_settings").upsert({
+    conversation_id: activeConvo.id, user_id: me.id, wallpaper_dim: parseInt(e.target.value)
+  });
+};
+
+document.getElementById("exportConvoBtn").onclick = ()=>{
+  if (!activeConvo) return;
+  const lines = activeConvo.messages.map(m=>{
+    const who = m.sender_id === me.id ? "Toi" : nameFor(m.sender_id);
+    const when = new Date(m.created_at).toLocaleString();
+    const text = m.deleted ? "[message supprimé]" : m.content;
+    return `[${when}] ${who}: ${text}`;
+  });
+  const blob = new Blob([lines.join("\n")], {type:"text/plain;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${activeConvo.displayName || "discussion"}.txt`;
+  a.click();
+};
+
+document.getElementById("openSearchBar").onclick = ()=>{
+  document.getElementById("searchBar").classList.add("show");
+  document.getElementById("searchInput").focus();
+};
+document.getElementById("closeSearchBar").onclick = ()=>{
+  document.getElementById("searchBar").classList.remove("show");
+  document.getElementById("searchInput").value = "";
+  document.querySelectorAll(".msgRow.searchHidden").forEach(r=> r.classList.remove("searchHidden"));
+  document.getElementById("searchCount").textContent = "";
+};
+document.getElementById("searchInput").addEventListener("input", (e)=>{
+  const q = e.target.value.trim().toLowerCase();
+  if (!activeConvo) return;
+  let count = 0;
+  const rows = document.querySelectorAll("#messagesEl .msgRow");
+  rows.forEach((row, i)=>{
+    const msg = activeConvo.messages[i];
+    const matches = !q || (msg && !msg.deleted && msg.content.toLowerCase().includes(q));
+    row.classList.toggle("searchHidden", !matches);
+    if (matches && q) count++;
+  });
+  document.getElementById("searchCount").textContent = q ? `${count} résultat(s)` : "";
+});
 
 async function loadMessages(conv){
   const {data} = await sb.from("messages").select("*").eq("conversation_id", conv.id).order("created_at");
   conv.messages = data || [];
+  await loadReactions(conv);
   renderMessages(conv);
+}
+
+async function loadReactions(conv){
+  conv.reactions = {};
+  if (!conv.messages.length) return;
+  const ids = conv.messages.map(m=>m.id);
+  const {data} = await sb.from("message_reactions").select("*").in("message_id", ids);
+  (data||[]).forEach(r=>{
+    (conv.reactions[r.message_id] = conv.reactions[r.message_id] || []).push(r);
+  });
 }
 
 function renderMessages(conv){
@@ -1495,6 +1786,18 @@ function renderMessageRow(conv, m, isLastMine, grouped){
       : buildImgStackHtml(images, stackWidth, stackHeight)
   ) : "";
 
+  const canManagePin = conv.type === "group" && (conv.myRole === "creator" || conv.myRole === "moderator");
+  const reactionsForMsg = (conv.reactions && conv.reactions[m.id]) || [];
+  const reactionGroups = {};
+  reactionsForMsg.forEach(r=> (reactionGroups[r.emoji] = reactionGroups[r.emoji] || []).push(r.user_id));
+  const reactionsHtml = !m.deleted ? `
+    <div class="reactionsRow">
+      ${Object.keys(reactionGroups).map(emoji => `
+        <span class="reactionPill ${reactionGroups[emoji].includes(me.id) ? "mine" : ""}" data-emoji="${emoji}">${emoji} ${reactionGroups[emoji].length}</span>
+      `).join("")}
+      <button class="addReactionBtn" data-act="react">+ 😊</button>
+    </div>` : "";
+
   wrap.className = "msgWithAvatar " + (mine ? "mine" : "theirs");
   wrap.innerHTML = `
     <div class="msgAvatar" style="${grouped ? "visibility:hidden;" : ""}">${avatarInner}</div>
@@ -1505,10 +1808,12 @@ function renderMessageRow(conv, m, isLastMine, grouped){
         ${m.deleted ? "<i>Message supprimé</i>" : escapeHtml(m.content)}
       </div>`}
       ${!m.deleted ? imgStackHtml : ""}
+      ${reactionsHtml}
       <div class="msgMeta">
         <span>${formatMsgTime(m.created_at)}${m.edited_at ? " · modifié" : ""}</span>
         ${canEdit ? `<button data-act="edit">modifier</button>` : ""}
         ${canDelete ? `<button data-act="del">supprimer</button>` : ""}
+        ${canManagePin && !m.deleted ? `<button data-act="pin">${conv.pinned_message_id===m.id ? "désépingler" : "épingler"}</button>` : ""}
       </div>
       ${receipt ? `<div class="readReceipt">${receipt}</div>` : ""}
     </div>`;
@@ -1524,9 +1829,74 @@ function renderMessageRow(conv, m, isLastMine, grouped){
     const {error} = await sb.from("messages").update({deleted:true}).eq("id", m.id);
     if (error) alert(traduireRpc(error.message));
   };
+  if (canManagePin){
+    const pinBtn = wrap.querySelector('[data-act="pin"]');
+    if (pinBtn) pinBtn.onclick = async ()=>{
+      const newVal = conv.pinned_message_id === m.id ? null : m.id;
+      await sb.from("conversations").update({pinned_message_id: newVal}).eq("id", conv.id);
+      await loadConversations();
+      activeConvo = conversations.find(c=>c.id===conv.id);
+      renderPinnedBanner(activeConvo);
+      renderMessages(activeConvo);
+    };
+  }
+  if (!m.deleted){
+    wrap.querySelectorAll(".reactionPill").forEach(pill=>{
+      pill.onclick = ()=> toggleReaction(m.id, pill.dataset.emoji);
+    });
+    const reactBtn = wrap.querySelector('[data-act="react"]');
+    if (reactBtn) reactBtn.onclick = (e)=> openReactionPicker(e, m.id);
+  }
 
   outer.appendChild(wrap);
   return outer;
+}
+
+const REACTION_EMOJIS = ["👍","❤️","😂","😮","😢","🔥"];
+function openReactionPicker(e, messageId){
+  e.stopPropagation();
+  document.querySelectorAll(".reactionPicker").forEach(p=>p.remove());
+  const picker = document.createElement("div");
+  picker.className = "reactionPicker show";
+  REACTION_EMOJIS.forEach(emoji=>{
+    const btn = document.createElement("button");
+    btn.textContent = emoji;
+    btn.onclick = (ev)=>{ ev.stopPropagation(); toggleReaction(messageId, emoji); picker.remove(); };
+    picker.appendChild(btn);
+  });
+  document.body.appendChild(picker);
+  const rect = e.target.getBoundingClientRect();
+  picker.style.left = rect.left + "px";
+  picker.style.top = (rect.top - 42) + "px";
+  setTimeout(()=> document.addEventListener("click", function h(){ picker.remove(); document.removeEventListener("click", h); }), 0);
+}
+
+async function toggleReaction(messageId, emoji){
+  const existing = (activeConvo.reactions[messageId]||[]).find(r=> r.user_id===me.id && r.emoji===emoji);
+  if (existing){
+    await sb.from("message_reactions").delete().eq("message_id", messageId).eq("user_id", me.id).eq("emoji", emoji);
+  } else {
+    await sb.from("message_reactions").insert({message_id: messageId, user_id: me.id, emoji});
+  }
+  await loadReactions(activeConvo);
+  renderMessages(activeConvo);
+}
+
+function renderPinnedBanner(conv){
+  const wrap = document.getElementById("pinnedBannerWrap");
+  if (!conv.pinned_message_id){ wrap.innerHTML = ""; return; }
+  const msg = conv.messages && conv.messages.find(m=>m.id===conv.pinned_message_id);
+  if (!msg){ wrap.innerHTML = ""; return; }
+  const canManagePin = conv.type === "group" && (conv.myRole === "creator" || conv.myRole === "moderator");
+  wrap.innerHTML = `<div class="pinnedBanner">📌 <b>${escapeHtml(nameFor(msg.sender_id))}</b>: ${escapeHtml((msg.content||"").slice(0,80))}
+    ${canManagePin ? `<button id="unpinBtn">désépingler</button>` : ""}</div>`;
+  const unpinBtn = document.getElementById("unpinBtn");
+  if (unpinBtn) unpinBtn.onclick = async ()=>{
+    await sb.from("conversations").update({pinned_message_id: null}).eq("id", conv.id);
+    await loadConversations();
+    activeConvo = conversations.find(c=>c.id===conv.id);
+    renderPinnedBanner(activeConvo);
+  };
 }
 
 document.getElementById("sendBtn").onclick = sendMessage;
@@ -1594,6 +1964,13 @@ function listenToConvoMessages(convoId){
         activeConvo.readState[payload.new.user_id] = payload.new.last_read_at;
         renderMessages(activeConvo);
       }
+    })
+    .on("postgres_changes", {event:"*", schema:"public", table:"message_reactions"}, async payload=>{
+      if (!activeConvo || activeConvo.id !== convoId) return;
+      const msgId = payload.new?.message_id || payload.old?.message_id;
+      if (!activeConvo.messages.find(m=>m.id===msgId)) return;
+      await loadReactions(activeConvo);
+      renderMessages(activeConvo);
     }).subscribe();
 }
 
@@ -1629,7 +2006,7 @@ function updateFaviconTitle(){
 
   if (!me){ titleEl.textContent = preset.staticTitle || preset.titleFn(0); faviconEl.href = preset.base; return; }
 
-  if (!me.notifications_enabled){
+  if (!me.notifications_enabled || isInDnd()){
     titleEl.textContent = preset.staticTitle || preset.titleFn(0);
     faviconEl.href = preset.base;
     return;
@@ -1781,15 +2158,109 @@ document.getElementById("dataSaverToggle").onchange = (e)=>{
   if (activeConvo) renderMessages(activeConvo);
 };
 
-function playPing(){
-  if (localStorage.getItem("rza_sound") === "off") return;
+document.querySelectorAll("#themeRow button").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll("#themeRow button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.body.classList.toggle("light", b.dataset.theme==="light");
+    localStorage.setItem("rza_theme", b.dataset.theme);
+  };
+});
+
+document.querySelectorAll("#uiScaleRow button").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll("#uiScaleRow button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.documentElement.style.zoom = b.dataset.scale;
+    localStorage.setItem("rza_uiscale", b.dataset.scale);
+  };
+});
+
+document.getElementById("soundToneSelect").onchange = (e)=>{
+  localStorage.setItem("rza_soundtone", e.target.value);
+  playPing(true);
+};
+
+document.getElementById("saveDndBtn").onclick = async ()=>{
+  const s = document.getElementById("dndStart").value;
+  const en = document.getElementById("dndEnd").value;
+  me.dnd_start_hour = s === "" ? null : parseInt(s);
+  me.dnd_end_hour = en === "" ? null : parseInt(en);
+  await sb.from("profiles").update({dnd_start_hour: me.dnd_start_hour, dnd_end_hour: me.dnd_end_hour}).eq("id", me.id);
+  alert("Plage \"Ne pas déranger\" enregistrée.");
+};
+
+function isInDnd(){
+  if (!me || me.dnd_start_hour == null || me.dnd_end_hour == null) return false;
+  const h = new Date().getHours();
+  const s = me.dnd_start_hour, en = me.dnd_end_hour;
+  if (s === en) return false;
+  return s < en ? (h >= s && h < en) : (h >= s || h < en);
+}
+
+function getQuickReplies(){
+  try{ return JSON.parse(localStorage.getItem("rza_quickreplies") || "[]"); }catch(e){ return []; }
+}
+function renderQuickReplies(){
+  const list = getQuickReplies();
+  const settingsEl = document.getElementById("quickRepliesList");
+  settingsEl.innerHTML = list.length ? "" : `<div class="li-sub">Aucune réponse rapide pour l'instant.</div>`;
+  list.forEach((txt, i)=>{
+    const row = document.createElement("div");
+    row.className = "reqRow";
+    row.innerHTML = `<span style="flex:1;">${escapeHtml(txt)}</span><button data-a="del" style="background:var(--accent);color:#fff;">✕</button>`;
+    row.querySelector('[data-a="del"]').onclick = ()=>{
+      list.splice(i,1);
+      localStorage.setItem("rza_quickreplies", JSON.stringify(list));
+      renderQuickReplies();
+    };
+    settingsEl.appendChild(row);
+  });
+
+  const menuEl = document.getElementById("quickReplyMenu");
+  menuEl.innerHTML = list.length ? "" : `<div class="li-sub" style="padding:6px;">Aucune réponse rapide. Ajoute-en dans les paramètres.</div>`;
+  list.forEach(txt=>{
+    const item = document.createElement("div");
+    item.className = "qrItem";
+    item.textContent = txt;
+    item.onclick = ()=>{
+      document.getElementById("msgInput").value = txt;
+      menuEl.classList.remove("show");
+      document.getElementById("msgInput").focus();
+    };
+    menuEl.appendChild(item);
+  });
+}
+document.getElementById("addQuickReplyBtn").onclick = ()=>{
+  const txt = prompt("Texte de la réponse rapide :");
+  if (!txt) return;
+  const list = getQuickReplies();
+  list.push(txt.trim());
+  localStorage.setItem("rza_quickreplies", JSON.stringify(list));
+  renderQuickReplies();
+};
+document.getElementById("quickReplyBtn").addEventListener("click", (e)=>{
+  e.stopPropagation();
+  document.getElementById("quickReplyMenu").classList.toggle("show");
+});
+document.addEventListener("click", ()=> document.getElementById("quickReplyMenu")?.classList.remove("show"));
+
+function playPing(force){
+  if (!force){
+    if (localStorage.getItem("rza_sound") === "off") return;
+    if (isInDnd()) return;
+  }
+  const tones = {
+    ping: [720, 0.35], pop: [340, 0.15], chime: [980, 0.5], blip: [1400, 0.12]
+  };
+  const [freq, dur] = tones[localStorage.getItem("rza_soundtone") || "ping"];
   try{
     const ctx = new (window.AudioContext||window.webkitAudioContext)();
     const o = ctx.createOscillator(); const g = ctx.createGain();
     o.connect(g); g.connect(ctx.destination);
-    o.frequency.value = 720; g.gain.value = 0.08;
-    o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-    o.stop(ctx.currentTime + 0.35);
+    o.frequency.value = freq; g.gain.value = 0.08;
+    o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    o.stop(ctx.currentTime + dur);
   }catch(e){}
 }
 
